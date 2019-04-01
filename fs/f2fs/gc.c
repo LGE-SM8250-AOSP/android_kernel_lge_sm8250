@@ -1927,6 +1927,7 @@ int f2fs_gc(struct f2fs_sb_info *sbi, struct f2fs_gc_control *gc_control)
 	unsigned int segno = gc_control->victim_segno;
 	int sec_freed = 0, seg_freed = 0, total_freed = 0;
 	int ret = 0;
+	struct super_block *sb = sbi->sb;
 	struct cp_control cpc;
 	struct gc_inode_list gc_list = {
 		.ilist = LIST_HEAD_INIT(gc_list.ilist),
@@ -1934,7 +1935,7 @@ int f2fs_gc(struct f2fs_sb_info *sbi, struct f2fs_gc_control *gc_control)
 	};
 	unsigned int skipped_round = 0, round = 0;
 
-	trace_f2fs_gc_begin(sbi->sb, gc_type, gc_control->no_bg_gc,
+	trace_f2fs_gc_begin(sb, gc_type, gc_control->no_bg_gc,
 				gc_control->nr_free_secs,
 				get_pages(sbi, F2FS_DIRTY_NODES),
 				get_pages(sbi, F2FS_DIRTY_DENTS),
@@ -1947,7 +1948,7 @@ int f2fs_gc(struct f2fs_sb_info *sbi, struct f2fs_gc_control *gc_control)
 	cpc.reason = __get_cp_reason(sbi);
 	sbi->skipped_gc_rwsem = 0;
 gc_more:
-	if (unlikely(!(sbi->sb->s_flags & SB_ACTIVE))) {
+	if (unlikely(!(sb->s_flags & SB_ACTIVE))) {
 		ret = -EINVAL;
 		goto stop;
 	}
@@ -2049,6 +2050,13 @@ stop:
 
 	if (gc_control->err_gc_skipped && !ret)
 		ret = sec_freed ? 0 : -EAGAIN;
+
+	if (gc_type == FG_GC && down_read_trylock(&sb->s_umount)) {
+		writeback_inodes_sb(sb, WB_REASON_SYNC);
+		sync_inodes_sb(sb);
+		up_read(&sb->s_umount);
+	}
+
 	return ret;
 }
 

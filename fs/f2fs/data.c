@@ -3247,8 +3247,11 @@ result:
 				} else if (ret == -EAGAIN) {
 					ret = 0;
 					if (wbc->sync_mode == WB_SYNC_ALL) {
-						f2fs_io_schedule_timeout(
-							DEFAULT_IO_TIMEOUT);
+#if (CONFIG_HZ > 100)
+						f2fs_io_schedule_timeout(2);
+#else
+						f2fs_io_schedule_timeout(1);
+#endif
 						goto retry_write;
 					}
 					goto next;

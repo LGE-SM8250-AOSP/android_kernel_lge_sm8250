@@ -1735,6 +1735,7 @@ struct f2fs_sb_info {
 	unsigned int next_victim_seg[2];	/* next segment in victim section */
 	spinlock_t gc_urgent_high_lock;
 	unsigned int gc_urgent_high_remaining;	/* remaining trial count for GC_URGENT_HIGH */
+	unsigned int rapid_gc;			/* is rapid GC running */
 
 	/* for skip statistic */
 	unsigned int atomic_files;		/* # of opened atomic file */
@@ -3874,6 +3875,8 @@ int f2fs_start_gc_thread(struct f2fs_sb_info *sbi);
 void f2fs_stop_gc_thread(struct f2fs_sb_info *sbi);
 void f2fs_gc_sbi_list_add(struct f2fs_sb_info *sbi);
 void f2fs_gc_sbi_list_del(struct f2fs_sb_info *sbi);
+void __init f2fs_init_rapid_gc(void);
+void __exit f2fs_destroy_rapid_gc(void);
 
 block_t f2fs_start_bidx_of_node(unsigned int node_ofs, struct inode *inode);
 int f2fs_gc(struct f2fs_sb_info *sbi, struct f2fs_gc_control *gc_control);

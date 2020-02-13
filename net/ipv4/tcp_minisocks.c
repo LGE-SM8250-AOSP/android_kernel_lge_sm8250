@@ -903,6 +903,8 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
 	 * ESTABLISHED STATE. If it will be dropped after
 	 * socket is created, wait for troubles.
 	 */
+	if (is_meta_sk(sk))
+		bh_lock_sock_nested(sk);
 	child = inet_csk(sk)->icsk_af_ops->syn_recv_sock(sk, skb, req, NULL,
 							 req, &own_req);
 	if (!child)
@@ -922,12 +924,18 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
 	}
 #endif
 
+	if (is_meta_sk(sk))
+		bh_unlock_sock(sk);
+
 	sock_rps_save_rxhash(child, skb);
 	tcp_synack_rtt_meas(child, req);
 	*req_stolen = !own_req;
 	return inet_csk_complete_hashdance(sk, child, req, own_req);
 
 listen_overflow:
+	if (is_meta_sk(sk))
+		bh_unlock_sock(sk);
+
 	if (!sock_net(sk)->ipv4.sysctl_tcp_abort_on_overflow) {
 		inet_rsk(req)->acked = 1;
 		return NULL;
@@ -982,11 +990,6 @@ int tcp_child_process(struct sock *parent, struct sock *child,
 
 	tcp_segs_in(tcp_sk(child), skb);
 #ifdef CONFIG_MPTCP
-	/* The following will be removed when we allow lockless data-reception
-	 * on the subflows.
-	 */
-	if (mptcp(tcp_sk(child)))
-		bh_lock_sock_nested(meta_sk);
 	if (!sock_owned_by_user(meta_sk)) {
 #else
 	if (!sock_owned_by_user(child)) {

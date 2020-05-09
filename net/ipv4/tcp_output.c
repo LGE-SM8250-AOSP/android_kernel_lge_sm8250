@@ -1796,11 +1796,7 @@ static void tcp_cwnd_application_limited(struct sock *sk)
 	tp->snd_cwnd_stamp = tcp_jiffies32;
 }
 
-#ifdef CONFIG_MPTCP
-void tcp_cwnd_validate(struct sock *sk, bool is_cwnd_limited)
-#else
 static void tcp_cwnd_validate(struct sock *sk, bool is_cwnd_limited)
-#endif
 {
 	const struct tcp_congestion_ops *ca_ops = inet_csk(sk)->icsk_ca_ops;
 	struct tcp_sock *tp = tcp_sk(sk);
@@ -2664,12 +2660,7 @@ repair:
 
 	is_cwnd_limited |= (tcp_packets_in_flight(tp) >= tp->snd_cwnd);
 	if (likely(sent_pkts || is_cwnd_limited))
-#ifdef CONFIG_MPTCP
-		if (tp->ops->cwnd_validate)
-			tp->ops->cwnd_validate(sk, is_cwnd_limited);
-#else
 		tcp_cwnd_validate(sk, is_cwnd_limited);
-#endif
 
 	if (likely(sent_pkts)) {
 		if (tcp_in_cwnd_reduction(sk))

@@ -40,6 +40,7 @@
 #if defined(CONFIG_LGE_TOUCH_USE_PANEL_NOTIFY)
 #include <linux/lge_panel_notify.h>
 #endif
+#include <linux/pm_qos.h>
 
 #if defined(CONFIG_SECURE_TOUCH)
 #include <linux/completion.h>
@@ -676,6 +677,8 @@ struct touch_core_data {
 
 	struct app_info app_data[3];
 	struct perf_test_info perf_test;
+	struct pm_qos_request pm_qos_req;
+
 
 	/* prediction filter off : 0, on : 1 */
 	int pred_filter;
@@ -689,6 +692,7 @@ struct touch_core_data {
 #if defined(CONFIG_LGE_TOUCH_APP_FW_UPGRADE)
 	struct app_fw_upgrade_info app_fw_upgrade;
 #endif
+
 };
 
 #define PROPERTY_GPIO(np, string, target)				\

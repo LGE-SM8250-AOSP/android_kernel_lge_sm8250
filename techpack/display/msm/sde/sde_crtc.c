@@ -3679,8 +3679,6 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 		lge_intv_notify(ktime_get());
 #endif
 
-	sde_vbif_clear_errors(sde_kms);
-
 	if (is_error) {
 		_sde_crtc_remove_pipe_flush(crtc);
 		_sde_crtc_blend_setup(crtc, old_state, false);

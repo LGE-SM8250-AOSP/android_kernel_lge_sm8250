@@ -278,6 +278,7 @@ static struct sock *tcp_fastopen_create_child(struct sock *sk,
 
 	tcp_rsk(req)->rcv_nxt = tp->rcv_nxt;
 	tp->rcv_wup = tp->rcv_nxt;
+	tp->rcv_right_edge = tp->rcv_wup + tp->rcv_wnd;
 
 #ifdef CONFIG_MPTCP
 	meta_sk = child;

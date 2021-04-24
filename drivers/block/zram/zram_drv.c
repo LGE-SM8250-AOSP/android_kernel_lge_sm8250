@@ -1940,6 +1940,11 @@ static int zram_add(void)
 		goto out_free_dev;
 	device_id = ret;
 
+	if (device_id >= 1) {
+		ret = -ENOMEM;
+		goto out_free_idr;
+	}
+
 	init_rwsem(&zram->init_lock);
 #ifdef CONFIG_ZRAM_DEDUP
 	zram->use_dedup = true;

@@ -112,6 +112,7 @@
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include "radio-rtc6226.h"
+#include <soc/qcom/lge/board_lge.h>
 /**************************************************************************
  * Module Parameters
  **************************************************************************/
@@ -131,6 +132,8 @@ int rtc6226_wq_flag = NO_WAIT;
 #ifdef New_VolumeControl
 unsigned short global_volume;
 #endif
+
+void touch_notify_fm_radio(u32 type);
 
 void rtc6226_q_event(struct rtc6226_device *radio,
 		enum rtc6226_evt_t event)
@@ -197,7 +200,7 @@ static int rtc6226_get_freq(struct rtc6226_device *radio, unsigned int *freq)
 	rssi = radio->registers[RSSI] & RSSI_RSSI;
 	FMDBG("%s chan %d\n", __func__, chan);
 	*freq = chan * TUNE_STEP_SIZE;
-	FMDBG("FMRICHWAVE, freq= %d, rssi= %d dBuV\n", *freq, rssi);
+	FMDBG("FMRICHWAVE, freq= %d, rssi= %d dBm, %d dBuV\n", *freq, rssi - 113, rssi);
 
 	if (rssi < radio->rssi_th)
 		rtc6226_q_event(radio, RTC6226_EVT_BELOW_TH);
@@ -315,6 +318,7 @@ void rtc6226_scan(struct work_struct *work)
 	u8 factor;
 	int retval = 0;
 	int i, rssi;
+	int check_108bounday = 0;
 
 	FMDBG("%s enter\n", __func__);
 
@@ -354,10 +358,17 @@ void rtc6226_scan(struct work_struct *work)
 			return;
 		}
 
-		retval = rtc6226_set_seek(radio, SRCH_UP, WRAP_DISABLE);
-		if (retval < 0) {
-			FMDERR("%s seek fail %d\n", __func__, retval);
-			goto seek_tune_fail;
+		if (!check_108bounday) {
+			retval = rtc6226_set_seek(radio, SRCH_UP, WRAP_DISABLE);
+			if (retval < 0) {
+				FMDERR("%s seek fail %d\n", __func__, retval);
+				goto seek_tune_fail;
+			}
+
+#if 1 // print seek fail
+			FMDBG("%s : STATUS=0x%4.4hx\n", __func__,
+					radio->registers[STATUS]);
+#endif
 		}
 			/* wait for seek to complete */
 		if (!wait_for_completion_timeout(&radio->completion,
@@ -389,6 +400,20 @@ void rtc6226_scan(struct work_struct *work)
 		rssi = radio->registers[RSSI] & RSSI_RSSI;
 		FMDBG("%s valid channel %d, rssi %d threshold rssi %d\n",
 				 __func__, next_freq_khz, rssi, radio->rssi_th);
+
+		/* Should read channel */
+		retval = rtc6226_get_register(radio, CHANNEL1);
+		if (retval < 0){
+			FMDERR("%s read fail to Channnel\n", __func__);
+			goto seek_tune_fail;
+		}
+
+		check_108bounday =
+			(radio->registers[CHANNEL1] & STATUS_READCH) == INDEX_108MHZ ? 1 : 0;
+			/* 10800 is the BL_108MHz */
+		//if (check_108bounday)
+		FMDBG("%s ch index %d is valid channel, checkbounday = %d\n", __func__,
+				radio->registers[STATUS] & STATUS_READCH, check_108bounday);
 
 		if (radio->g_search_mode == SCAN && rssi >= radio->rssi_th)
 			rtc6226_q_event(radio, RTC6226_EVT_TUNE_SUCC);
@@ -425,7 +450,7 @@ void rtc6226_scan(struct work_struct *work)
 				radio->registers[STATUS]);
 		if (radio->registers[STATUS] & STATUS_SF ||
 				(radio->recv_conf.band_high_limit *
-				TUNE_STEP_SIZE) == next_freq_khz) {
+				TUNE_STEP_SIZE) == next_freq_khz || check_108bounday) {
 			FMDERR("%s Seek one more time if lower freq is valid\n",
 					__func__);
 			// Tuned to band low limit + chan spacing then seek
@@ -1836,6 +1861,18 @@ int rtc6226_vidioc_s_ctrl(struct file *file, void *priv,
 				goto end;
 			}
 			radio->mode = FM_RECV_TURNING_ON;
+#ifdef CONFIG_MACH_LGE	
+			if (radio->lna_en > 0) {
+				gpio_direction_output(radio->lna_en, 1);
+				touch_notify_fm_radio(1);
+				FMDBG("[LNA ENABLED] gpio_get_value : %d\n", gpio_get_value(radio->lna_en));
+			}
+
+			if (radio->lna_gain > 0) {
+				gpio_direction_output(radio->lna_gain, 1);
+				FMDBG("[LNA Gain ENABLED] gpio_get_value : %d\n", gpio_get_value(radio->lna_gain));
+			}
+#endif				
 			retval = rtc6226_enable(radio);
 			if (retval < 0) {
 				FMDERR(
@@ -1852,6 +1889,18 @@ int rtc6226_vidioc_s_ctrl(struct file *file, void *priv,
 				radio->mode = FM_RECV;
 				goto end;
 			}
+#ifdef CONFIG_MACH_LGE	
+			if (radio->lna_en > 0) {
+				gpio_direction_output(radio->lna_en, 0);
+				touch_notify_fm_radio(0);
+				FMDBG("[LNA DISABLED] gpio_get_value : %d\n", gpio_get_value(radio->lna_en));
+			}
+
+			if (radio->lna_gain > 0) {
+				gpio_direction_output(radio->lna_gain, 0);
+				FMDBG("[LNA Gain DISABLED] gpio_get_value : %d\n", gpio_get_value(radio->lna_gain));
+			}
+#endif
 		}
 		break;
 	case V4L2_CID_PRIVATE_RTC6226_SET_AUDIO_PATH:
@@ -2160,7 +2209,8 @@ static int rtc6226_vidioc_g_tuner(struct file *file, void *priv,
 	}
 
 	/* min is worst, max is best; rssi: 0..0xff */
-	tuner->signal = (radio->registers[RSSI] & RSSI_RSSI);
+	tuner->signal = (radio->registers[RSSI] & RSSI_RSSI) - 113;
+	FMDBG("FMRICHWAVE, getRSSI = %d dBm,  %d dBuV\n", tuner->signal, radio->registers[RSSI]&RSSI_RSSI);
 
 done:
 	FMDBG("%s exit %d\n", __func__, retval);
@@ -2315,6 +2365,13 @@ static int rtc6226_vidioc_s_hw_freq_seek(struct file *file, void *priv,
 		radio->seek_tune_status = SEEK_PENDING;
 		retval = rtc6226_set_seek(radio, seek->seek_upward,
 				WRAP_ENABLE);
+		if((lge_get_boot_mode() == LGE_BOOT_MODE_QEM_56K)
+		|| (lge_get_boot_mode() == LGE_BOOT_MODE_QEM_910K)){
+			rtc6226_q_event(radio, RTC6226_EVT_SEEK_COMPLETE);
+		}
+		rtc6226_q_event(radio, RTC6226_EVT_TUNE_SUCC);
+		radio->seek_tune_status = NO_SEEK_TUNE_PENDING;
+		rtc6226_q_event(radio, RTC6226_EVT_SCAN_NEXT);
 	} else if ((radio->g_search_mode == SCAN) ||
 			(radio->g_search_mode == SCAN_FOR_STRONG)) {
 		/* scan */

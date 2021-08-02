@@ -504,6 +504,9 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 
 	switch (bdf_type) {
 	case CNSS_BDF_ELF:
+		/* LGE_CHANGE_S, [protocol-wifi@lge.com], use elf file only */
+		snprintf(filename, filename_len, ELF_BDF_FILE_NAME);
+		/* qct original code
 		if (plat_priv->board_info.board_id == 0xFF)
 			snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
 		else if (plat_priv->board_info.board_id < 0xFF)
@@ -515,6 +518,8 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 				 BDF_FILE_NAME_PREFIX "%02x.e%02x",
 				 plat_priv->board_info.board_id >> 8 & 0xFF,
 				 plat_priv->board_info.board_id & 0xFF);
+		*/
+		/* LGE_CHANGE_E, [protocol-wifi@lge.com], use elf file only */
 		break;
 	case CNSS_BDF_BIN:
 		if (plat_priv->board_info.board_id == 0xFF)
@@ -544,8 +549,10 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 		break;
 	}
 
+	/* qct original code
 	if (ret >= 0)
 		cnss_bus_add_fw_prefix_name(plat_priv, filename, filename_tmp);
+	*/
 
 	return ret;
 }

@@ -15,6 +15,10 @@
 #include <linux/scatterlist.h>
 #include <linux/dma-mapping.h>
 
+#ifdef CONFIG_LFS_MM_BDI_STRICTLIMIT_DIRTY
+#include <linux/backing-dev.h>
+#endif
+
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
 
@@ -469,6 +473,14 @@ static int mmc_mq_init(struct mmc_queue *mq, struct mmc_card *card,
 
 	mmc_setup_queue(mq, card);
 
+#ifdef CONFIG_LFS_MM_BDI_STRICTLIMIT_DIRTY
+	if (mmc_card_sd(card)) {
+		mq->queue->backing_dev_info->capabilities |= BDI_CAP_STRICTLIMIT;
+		bdi_set_min_ratio(mq->queue->backing_dev_info, 0);
+		bdi_set_max_ratio(mq->queue->backing_dev_info, 10);
+	}
+#endif
+
 	return 0;
 }
 
@@ -513,6 +525,13 @@ void mmc_queue_resume(struct mmc_queue *mq)
 void mmc_cleanup_queue(struct mmc_queue *mq)
 {
 	struct request_queue *q = mq->queue;
+
+#ifdef CONFIG_LFS_MM_BDI_STRICTLIMIT_DIRTY
+	if (mq->card && mmc_card_sd(mq->card)) {
+		bdi_set_min_ratio(mq->queue->backing_dev_info, 0);
+		bdi_set_max_ratio(mq->queue->backing_dev_info, 100);
+	}
+#endif
 
 	/*
 	 * The legacy code handled the possibility of being suspended,

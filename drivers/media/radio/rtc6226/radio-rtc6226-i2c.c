@@ -102,6 +102,83 @@ enum rtc6226_ctrl_id {
 
 /*static*/
 struct tasklet_struct my_tasklet;
+#ifdef CONFIG_MACH_LGE
+
+static int fm_ant_gpios(struct rtc6226_device *radio, bool on)
+{
+	int rc = 0;
+
+	if (on) {
+		/* ant switch */
+		if (radio->fm_sw_gpio > 0) {
+			/* for switch ldo */
+			if (!IS_ERR(radio->vdd_reg)) {
+				rc = regulator_enable(radio->vdd_reg);
+				if (rc < 0)
+					FMDERR("vdd_reg enable failed.rc=%d\n", rc);
+				else
+					FMDBG("vdd_reg enable success.rc=%d\n", rc);
+
+				msleep(100);
+			}
+			rc = gpio_direction_output(radio->fm_sw_gpio, 0);
+			if (rc) {
+				FMDERR("%s unable to set the gpio %d direction(%d)\n",
+				__func__, radio->fm_sw_gpio, rc);
+				return rc;
+			}
+			msleep(100);
+			FMDBG("%s fm_sw_gpio gpio_get_value : %d\n", __func__, gpio_get_value(radio->fm_sw_gpio));
+		}
+
+	} else {
+		/* ant switch */
+		if (radio->fm_sw_gpio > 0) {
+			/* for switch ldo */
+			if (!IS_ERR(radio->vdd_reg)) {
+				rc = regulator_disable(radio->vdd_reg);
+				if (rc < 0)
+					FMDERR("vdd_reg disable failed.rc=%d\n", rc);
+			}
+
+			rc = gpio_direction_output(radio->fm_sw_gpio, 1);
+			if (rc) {
+				FMDERR("%s unable to set the gpio %d direction(%d)\n",
+				__func__, radio->fm_sw_gpio, rc);
+				return rc;
+			}
+			FMDBG("%s fm_sw_gpio gpio_get_value : %d\n", __func__, gpio_get_value(radio->fm_sw_gpio));
+		}
+
+		/* Wait for some time for the value to take effect. */
+		msleep(100);
+	}
+	return rc;
+}
+
+static int rtc6226_pinctrl_select(struct rtc6226_device *radio, bool on)
+{
+	struct pinctrl_state *pins_state;
+	int ret;
+
+	pins_state = on ? radio->gpio_state_active
+			: radio->gpio_state_suspend;
+
+	if (!IS_ERR_OR_NULL(pins_state)) {
+		ret = pinctrl_select_state(radio->fm_pinctrl, pins_state);
+		if (ret) {
+			FMDERR("%s: cannot set pin state\n", __func__);
+			return ret;
+		}
+	} else {
+		FMDERR("%s: not a valid %s pin state\n", __func__,
+				on ? "pmx_fm_active" : "pmx_fm_suspend");
+	}
+
+	return 0;
+}
+#endif
+
 /*
  * rtc6226_get_register - read register
  */
@@ -303,6 +380,7 @@ static void rtc6226_i2c_interrupt_handler(struct rtc6226_device *radio)
 	}
 end:
 	FMDBG("%s exit :%d\n", __func__, retval);
+	return;
 }
 
 static irqreturn_t rtc6226_isr(int irq, void *dev_id)
@@ -537,6 +615,16 @@ int rtc6226_fops_open(struct file *file)
 	INIT_DELAYED_WORK(&radio->work, rtc6226_handler);
 	INIT_DELAYED_WORK(&radio->work_scan, rtc6226_scan);
 	INIT_WORK(&radio->rds_worker, rtc6226_rds_handler);
+#ifdef CONFIG_MACH_LGE
+	fm_ant_gpios(radio, true);
+	/* If pinctrl is supported, select active state */
+	if (radio->fm_pinctrl) {
+		retval = rtc6226_pinctrl_select(radio, true);
+		if (retval)
+			FMDERR("%s: error setting active pin state\n",
+							__func__);
+	}
+#endif
 
 	/* Power up  Supply voltage to VDD and VIO */
 	retval = rtc6226_fm_power_cfg(radio, TURNING_ON);
@@ -587,7 +675,55 @@ static int rtc6226_parse_dt(struct device *dev,
 {
 	int rc = 0;
 	struct device_node *np = dev->of_node;
+#ifdef CONFIG_MACH_LGE
+	radio->ext_ldo_gpio = of_get_named_gpio(np, "rtc,ext-ldo", 0);
+	if (radio->ext_ldo_gpio < 0) {
+		FMDERR("%s rtc-ext-ldo-gpio not provided in device tree\n",__func__);
+	}
+	else {
+		rc = gpio_request(radio->ext_ldo_gpio, "fm_ldo_gpio_n");
+		if (rc) {
+			FMDERR("%s unable to request gpio %d (%d)\n",__func__,
+						radio->ext_ldo_gpio, rc);
+			return rc;
+		}
+	}
 
+	radio->fm_sw_gpio = of_get_named_gpio(np, "rtc,fm-sw-gpio", 0);
+	if (radio->fm_sw_gpio < 0) {
+		FMDERR("%s rtc-fm-sw-gpio not provided in device tree\n",__func__);
+	}
+	else {
+		radio->vdd_reg = regulator_get(dev, "vdd_fm_sw");
+		FMDBG("%s regulator_get for ant switch\n", __func__);
+		if (IS_ERR(radio->vdd_reg)) {
+			FMDERR("In %s, vdd supply is not provided\n", __func__);
+		}
+
+		rc = gpio_request(radio->fm_sw_gpio, "fm_sw_gpio_n");
+		if (rc) {
+			FMDERR("%s unable to request gpio %d (%d)\n",__func__,
+						radio->fm_sw_gpio, rc);
+			return rc;
+		}
+	}
+
+	radio->lna_en = -1;
+	radio->lna_en = of_get_named_gpio(np, "rtc,lna-en-gpio", 0);
+	if (radio->lna_en > 0) {
+		rc = gpio_request(radio->lna_en, "lna_en");
+		gpio_direction_output(radio->lna_en, 0);
+		FMDBG("LNA enable gpio : %d, ret: %d\n", radio->lna_en, rc);
+	}
+
+        radio->lna_gain = -1;
+        radio->lna_gain = of_get_named_gpio(np, "rtc,lna-gain-ctrl", 0);
+        if (radio->lna_gain > 0) {
+                rc = gpio_request(radio->lna_gain, "lna_gain");
+                gpio_direction_output(radio->lna_gain, 0);
+                FMDBG("LNA Gain CTRL gpio : %d, ret: %d\n", radio->lna_gain, rc);
+        }
+#endif
 	radio->int_gpio = of_get_named_gpio(np, "fmint-gpio", 0);
 	if (radio->int_gpio < 0) {
 		FMDERR("%s int-gpio not provided in device tree\n", __func__);
@@ -803,7 +939,16 @@ static int rtc6226_i2c_probe(struct i2c_client *client,
 	} else {
 		FMDBG("%s rtc6226_pinctrl_init success\n", __func__);
 	}
-
+#ifdef CONFIG_MACH_LGE
+	if (radio->ext_ldo_gpio > 0) {
+		retval = gpio_direction_output(radio->ext_ldo_gpio, 1);
+		if (retval) {
+			FMDERR("%s Unable to set direction(LDO)\n",__func__);
+			kfree(radio);
+			return retval;
+		}
+	}
+#endif	
 	memcpy(&radio->videodev, &rtc6226_viddev_template,
 		sizeof(struct video_device));
 

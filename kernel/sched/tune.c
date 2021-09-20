@@ -567,9 +567,32 @@ int schedtune_cpu_boost_with(int cpu, struct task_struct *p)
 	return max(bg->boost_max, task_boost);
 }
 
+static inline int schedtune_filter_boost(struct task_struct *p)
+{
+	struct schedtune *st = task_schedtune(p);
+	char name_buf[NAME_MAX + 1];
+
+	cgroup_name(st->css.cgroup, name_buf, sizeof(name_buf));
+	if (unlikely(!strncmp(name_buf, "top-app", strlen("top-app")))) {
+		int adj = p->signal->oom_score_adj;
+		// pr_debug("top app is %s with adj %i\n", p->comm, adj);
+
+		/* We only care about adj == 0 */
+		if (adj != 0)
+			return 0;
+
+		/* Don't touch kthreads */
+		if (p->flags & PF_KTHREAD)
+			return 0;
+
+		return st->boost;
+	}
+
+	return st->boost;
+}
+
 int schedtune_task_boost(struct task_struct *p)
 {
-	struct schedtune *st;
 	int task_boost;
 
 	if (unlikely(!schedtune_initialized))
@@ -577,8 +600,7 @@ int schedtune_task_boost(struct task_struct *p)
 
 	/* Get task boost value */
 	rcu_read_lock();
-	st = task_schedtune(p);
-	task_boost = st->boost;
+	task_boost = schedtune_filter_boost(p);
 	rcu_read_unlock();
 
 	return task_boost;
@@ -586,7 +608,6 @@ int schedtune_task_boost(struct task_struct *p)
 
 int schedtune_prefer_idle(struct task_struct *p)
 {
-	struct schedtune *st;
 	int prefer_idle;
 
 	if (unlikely(!schedtune_initialized))
@@ -594,8 +615,7 @@ int schedtune_prefer_idle(struct task_struct *p)
 
 	/* Get prefer_idle value */
 	rcu_read_lock();
-	st = task_schedtune(p);
-	prefer_idle = st->prefer_idle;
+	prefer_idle = schedtune_filter_boost(p);
 	rcu_read_unlock();
 
 	return prefer_idle;
@@ -603,7 +623,6 @@ int schedtune_prefer_idle(struct task_struct *p)
 
 bool schedtune_prefer_high_cap(struct task_struct *p)
 {
-	struct schedtune *st;
 	int prefer_high_cap;
 
 	if (unlikely(!schedtune_initialized))
@@ -611,8 +630,7 @@ bool schedtune_prefer_high_cap(struct task_struct *p)
 
 	/* Get prefer_high_cap value */
 	rcu_read_lock();
-	st = task_schedtune(p);
-	prefer_high_cap = st->prefer_high_cap;
+	prefer_high_cap = schedtune_filter_boost(p);
 	rcu_read_unlock();
 
 	return prefer_high_cap;

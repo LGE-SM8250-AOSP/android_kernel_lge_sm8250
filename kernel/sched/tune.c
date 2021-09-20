@@ -540,9 +540,32 @@ int schedtune_cpu_boost_with(int cpu, struct task_struct *p)
 	return max(bg->boost_max, task_boost);
 }
 
+static inline int schedtune_filter_boost(struct task_struct *p)
+{
+	struct schedtune *st = task_schedtune(p);
+	char name_buf[NAME_MAX + 1];
+
+	cgroup_name(st->css.cgroup, name_buf, sizeof(name_buf));
+	if (unlikely(!strncmp(name_buf, "top-app", strlen("top-app")))) {
+		int adj = p->signal->oom_score_adj;
+		// pr_debug("top app is %s with adj %i\n", p->comm, adj);
+
+		/* We only care about adj == 0 */
+		if (adj != 0)
+			return 0;
+
+		/* Don't touch kthreads */
+		if (p->flags & PF_KTHREAD)
+			return 0;
+
+		return st->boost;
+	}
+
+	return st->boost;
+}
+
 int schedtune_task_boost(struct task_struct *p)
 {
-	struct schedtune *st;
 	int task_boost;
 
 	if (unlikely(!schedtune_initialized))
@@ -550,8 +573,7 @@ int schedtune_task_boost(struct task_struct *p)
 
 	/* Get task boost value */
 	rcu_read_lock();
-	st = task_schedtune(p);
-	task_boost = st->boost;
+	task_boost = schedtune_filter_boost(p);
 	rcu_read_unlock();
 
 	return task_boost;
@@ -559,7 +581,6 @@ int schedtune_task_boost(struct task_struct *p)
 
 int schedtune_prefer_idle(struct task_struct *p)
 {
-	struct schedtune *st;
 	int prefer_idle;
 
 	if (unlikely(!schedtune_initialized))
@@ -567,8 +588,7 @@ int schedtune_prefer_idle(struct task_struct *p)
 
 	/* Get prefer_idle value */
 	rcu_read_lock();
-	st = task_schedtune(p);
-	prefer_idle = st->prefer_idle;
+	prefer_idle = schedtune_filter_boost(p);
 	rcu_read_unlock();
 
 	return prefer_idle;
@@ -743,18 +763,6 @@ static int prefer_idle_write_wrapper(struct cgroup_subsys_state *css,
 #endif
 
 static struct cftype files[] = {
-#ifdef CONFIG_SCHED_WALT
-	{
-		.name = "sched_boost_no_override",
-		.read_u64 = sched_boost_override_read,
-		.write_u64 = sched_boost_override_write_wrapper,
-	},
-	{
-		.name = "colocate",
-		.read_u64 = sched_colocate_read,
-		.write_u64 = sched_colocate_write_wrapper,
-	},
-#endif
 	{
 		.name = "boost",
 		.read_s64 = boost_read,
@@ -765,6 +773,18 @@ static struct cftype files[] = {
 		.read_u64 = prefer_idle_read,
 		.write_u64 = prefer_idle_write_wrapper,
 	},
+#ifdef CONFIG_SCHED_WALT
+	{
+		.name = "colocate",
+		.read_u64 = sched_colocate_read,
+		.write_u64 = sched_colocate_write_wrapper,
+	},
+	{
+		.name = "sched_boost_no_override",
+		.read_u64 = sched_boost_override_read,
+		.write_u64 = sched_boost_override_write_wrapper,
+	},
+#endif
 	{ }	/* terminate */
 };
 
@@ -803,7 +823,7 @@ static void write_default_values(struct cgroup_subsys_state *css)
 		{ "background",	0, 0, 0, 0 },
 		{ "foreground",	0, 1, 0, 1 },
 		{ "rt",		0, 0, 0, 0 },
-		{ "top-app",	1, 1, 0, 1 },
+		{ "top-app",	1, 1, 1, 1 },
 	};
 	int i;
 
@@ -811,9 +831,11 @@ static void write_default_values(struct cgroup_subsys_state *css)
 		struct st_data tgt = st_targets[i];
 
 		if (!strcmp(css->cgroup->kn->name, tgt.name)) {
+#if 0
 			pr_info("stune_assist: setting values for %s: boost=%d prefer_idle=%d colocate=%d no_override=%d\n",
 				tgt.name, tgt.boost, tgt.prefer_idle,
 				tgt.colocate, tgt.no_override);
+#endif
 
 			boost_write(css, NULL, tgt.boost);
 			prefer_idle_write(css, NULL, tgt.prefer_idle);

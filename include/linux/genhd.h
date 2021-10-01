@@ -144,6 +144,10 @@ struct hd_struct {
 #define GENHD_FL_NO_PART_SCAN			512
 #define GENHD_FL_HIDDEN				1024
 
+#ifdef CONFIG_LFS_SCSI_USB_HOST_NOTIFY
+#define GENHD_IF_USB	1
+#endif
+
 enum {
 	DISK_EVENT_MEDIA_CHANGE			= 1 << 0, /* media changed */
 	DISK_EVENT_EJECT_REQUEST		= 1 << 1, /* eject requested */
@@ -211,6 +215,11 @@ struct gendisk {
 	int node_id;
 	struct badblocks *bb;
 	struct lockdep_map lockdep_map;
+
+#ifdef CONFIG_LFS_SCSI_USB_HOST_NOTIFY
+	int media_present;
+	int interfaces;
+#endif
 };
 
 static inline struct gendisk *part_to_disk(struct hd_struct *part)

@@ -481,16 +481,6 @@ struct tee_mmu *tee_mmu_create(struct mm_struct *mm,
 			 * Linux creates (page faults) the underlying pages if
 			 * missing.
 			 */
-#ifdef CONFIG_CMA_PINPAGE_MIGRATION
-			gup_ret = get_user_pages_foll_cma(NULL, mm, (uintptr_t)reader,
-					nr_pages, 1, 0, pages,
-					NULL);
-			if ((gup_ret == -EFAULT) && !writeable) {
-				gup_ret = get_user_pages_foll_cma(NULL, mm, (uintptr_t)reader,
-						nr_pages, 0, 0, pages,
-						NULL);
-			}
-#else
 			gup_ret = gup_local_repeat(mm, (uintptr_t)reader,
 						   nr_pages, 1, pages);
 			if ((gup_ret == -EFAULT) && !writeable) {
@@ -503,7 +493,6 @@ struct tee_mmu *tee_mmu_create(struct mm_struct *mm,
 							   (uintptr_t)reader,
 							   nr_pages, 0, pages);
 			}
-#endif
 			up_read(&mm->mmap_sem);
 			if (gup_ret < 0) {
 				ret = gup_ret;

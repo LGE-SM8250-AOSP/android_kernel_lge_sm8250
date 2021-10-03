@@ -2777,7 +2777,7 @@ static int usbpd_startup_common(struct usbpd *pd,
 		 * phy_msg_received() will handle the downgrade.
 		 */
 #ifdef CONFIG_LGE_USB
-		if ((pd->pd20_source_only) &&
+		if (((pd->pd20_source_only) &&
 			pd->current_state == PE_SRC_STARTUP) ||
 			disable_usb_pd_rev3 || pd->is_moisture_detected)
 			pd->spec_rev = USBPD_REV_20;

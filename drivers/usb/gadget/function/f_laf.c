@@ -33,6 +33,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/configfs.h>
 #include <linux/usb/composite.h>
+#include <linux/kref.h>
 
 #include "configfs.h"
 
@@ -71,6 +72,8 @@ struct laf_dev {
 	atomic_t read_excl;
 	atomic_t write_excl;
 	atomic_t open_excl;
+
+	struct kref kref;
 
 	struct list_head tx_idle;
 
@@ -196,6 +199,14 @@ static struct laf_dev *_laf_dev;
 static inline struct laf_dev *func_to_laf(struct usb_function *f)
 {
 	return container_of(f, struct laf_dev, function);
+}
+
+static void laf_dev_free(struct kref *kref)
+{
+	struct laf_dev *dev = container_of(kref, struct laf_dev, kref);
+
+	kfree(dev);
+	_laf_dev = NULL;
 }
 
 static struct usb_request *laf_request_new(struct usb_ep *ep, int buffer_size)
@@ -520,26 +531,35 @@ static ssize_t laf_write(struct file *fp, const char __user *buf,
 
 static int laf_open(struct inode *ip, struct file *fp)
 {
+	struct laf_dev *dev = _laf_dev;
+
 	pr_debug("laf_open\n");
-	if (!_laf_dev)
+	if (!dev)
 		return -ENODEV;
 
-	if (laf_lock(&_laf_dev->open_excl))
+	if (laf_lock(&dev->open_excl))
 		return -EBUSY;
 
-	fp->private_data = _laf_dev;
+	fp->private_data = dev;
 
 	/* clear the error latch */
 	atomic_set(&_laf_dev->error, 0);
+
+	kref_get(&dev->kref);
 
 	return 0;
 }
 
 static int laf_release(struct inode *ip, struct file *fp)
 {
+	struct laf_dev *dev = _laf_dev;
+
 	printk(KERN_INFO "laf_release\n");
 
-	laf_unlock(&_laf_dev->open_excl);
+	laf_unlock(&dev->open_excl);
+
+	kref_put(&dev->kref, laf_dev_free);
+
 	return 0;
 }
 
@@ -687,6 +707,7 @@ static int __laf_setup(struct laf_instance *fi_laf)
 	if (!dev)
 		return -ENOMEM;
 
+	kref_init(&dev->kref);
 	spin_lock_init(&dev->lock);
 	init_waitqueue_head(&dev->read_wq);
 	init_waitqueue_head(&dev->write_wq);
@@ -723,8 +744,8 @@ static void laf_cleanup(void)
 		return;
 
 	misc_deregister(&laf_device);
-	_laf_dev = NULL;
-	kfree(dev);
+
+	kref_put(&dev->kref, laf_dev_free);
 }
 
 static struct laf_instance *to_laf_instance(struct config_item *item)

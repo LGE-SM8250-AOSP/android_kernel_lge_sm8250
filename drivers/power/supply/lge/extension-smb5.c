@@ -2072,6 +2072,14 @@ int extension_usb_main_set_property(struct power_supply* psy,
 		return rc;
 		break;
 
+	case POWER_SUPPLY_PROP_FORCE_MAIN_FCC:
+		if (!chg->cp_ilim_votable)
+			chg->cp_ilim_votable = find_votable("CP_ILIM");
+		if (chg->cp_ilim_votable && val->intval < 0)
+			vote_override(chg->cp_ilim_votable,
+				CC_MODE_VOTER, false, val->intval);
+		break;
+
 	case POWER_SUPPLY_PROP_FORCE_MAIN_ICL:
 		if (!chg->cp_disable_votable)
 			chg->cp_disable_votable = find_votable("CP_DISABLE");

@@ -977,7 +977,7 @@
 
 		tempcomp-icoeff = <1>;
 		LGE_BLT46_Tocad_5000mAh {
-			tempcomp-icoeff = <30>;
+			tempcomp-icoeff = <36>;
 		};
 		LGE_BLT46_LGC_5000mAh {
 			tempcomp-icoeff = <25>;

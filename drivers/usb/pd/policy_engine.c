@@ -3726,7 +3726,11 @@ static bool handle_data_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 			break;
 		}
 		memcpy(&ado, rx_msg->payload, sizeof(ado));
+#ifdef CONFIG_LGE_USB
+		usbpd_info(&pd->dev, "Received Alert 0x%08x\n", ado);
+#else
 		usbpd_dbg(&pd->dev, "Received Alert 0x%08x\n", ado);
+#endif
 
 		/*
 		 * Don't send Get_Status right away so we can coalesce
@@ -3734,7 +3738,11 @@ static bool handle_data_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		 * in the way of any other AMS that might happen.
 		 */
 		pd->send_get_status = true;
+#ifdef CONFIG_LGE_USB
+		kick_sm(pd, 0);
+#else
 		kick_sm(pd, 150);
+#endif
 		break;
 	case MSG_BATTERY_STATUS:
 		if (rx_msg->data_len != sizeof(pd->battery_sts_dobj)) {
@@ -6310,14 +6318,22 @@ static ssize_t select_pdo_store(struct device *dev,
 		ret = -EBUSY;
 		goto out;
 	}
+
+	if (work_busy(&pd->sm_work)) {
+			usbpd_err(&pd->dev, "select_pdo: usbpd_sm already running\n");
+			ret = -EBUSY;
+			goto out;
+	}
+
+	if (pd->sm_queued) {
+			usbpd_err(&pd->dev, "select_pdo: usbpd_sm slready queueing\n");
+			ret = -EBUSY;
+			goto out;
+	}
 #endif
 
 	/* Only allowed if we are already in explicit sink contract */
-#ifdef CONFIG_LGE_USB
-	if (pd->current_state != PE_SNK_READY || pd->sm_queued) {
-#else
 	if (pd->current_state != PE_SNK_READY) {
-#endif
 		usbpd_err(&pd->dev, "Cannot select new PDO yet\n");
 		ret = -EBUSY;
 		goto out;
@@ -6359,11 +6375,7 @@ static ssize_t select_pdo_store(struct device *dev,
 #endif
 	reinit_completion(&pd->is_ready);
 	pd->send_request = true;
-#ifdef CONFIG_LGE_USB
-    kick_sm(pd, SENDER_RESPONSE_TIME);
-#else
 	kick_sm(pd, 0);
-#endif
 
 	/* wait for operation to complete */
 	if (!wait_for_completion_timeout(&pd->is_ready,
@@ -6500,6 +6512,18 @@ static int trigger_tx_msg(struct usbpd *pd, bool *msg_tx_flag)
 	usbpd_dbg(&pd->dev, "%s\n", __func__);
 
 	mutex_lock(&pd->swap_lock);
+
+	if (work_busy(&pd->sm_work)) {
+			usbpd_err(&pd->dev, "trigger_tx_msg: usbpd_sm already running\n");
+			ret = -EBUSY;
+			goto out;
+	}
+
+	if (pd->sm_queued) {
+			usbpd_err(&pd->dev, "trigger_tx_msg: usbpd_sm already queueing\n");
+			ret = -EBUSY;
+			goto out;
+	}
 #endif
 
 	/* Only allowed if we are already in explicit sink contract */
@@ -6511,11 +6535,7 @@ static int trigger_tx_msg(struct usbpd *pd, bool *msg_tx_flag)
 
 	reinit_completion(&pd->is_ready);
 	*msg_tx_flag = true;
-#ifdef CONFIG_LGE_USB
-	kick_sm(pd, SENDER_RESPONSE_TIME);
-#else
 	kick_sm(pd, 0);
-#endif
 
 	/* wait for operation to complete */
 	if (!wait_for_completion_timeout(&pd->is_ready,
@@ -6543,6 +6563,10 @@ static ssize_t get_src_cap_ext_show(struct device *dev,
 	int i, ret, len = 0;
 	struct usbpd *pd = dev_get_drvdata(dev);
 
+#ifdef CONFIG_LGE_USB
+	usbpd_dbg(&pd->dev, "%s\n", __func__);
+#endif
+
 	if (pd->spec_rev == USBPD_REV_20)
 		return -EINVAL;
 
@@ -6565,6 +6589,10 @@ static ssize_t get_status_show(struct device *dev,
 {
 	int i, ret, len = 0;
 	struct usbpd *pd = dev_get_drvdata(dev);
+
+#ifdef CONFIG_LGE_USB
+	usbpd_dbg(&pd->dev, "%s\n", __func__);
+#endif
 
 	if (pd->spec_rev == USBPD_REV_20)
 		return -EINVAL;
@@ -6589,6 +6617,10 @@ static ssize_t get_pps_status_show(struct device *dev,
 	int ret;
 	struct usbpd *pd = dev_get_drvdata(dev);
 
+#ifdef CONFIG_LGE_USB
+	usbpd_dbg(&pd->dev, "%s\n", __func__);
+#endif
+
 	if (pd->spec_rev == USBPD_REV_20)
 		return -EINVAL;
 
@@ -6606,6 +6638,10 @@ static ssize_t get_battery_cap_store(struct device *dev,
 	struct usbpd *pd = dev_get_drvdata(dev);
 	u32 val;
 	int ret;
+
+#ifdef CONFIG_LGE_USB
+	usbpd_dbg(&pd->dev, "%s\n", __func__);
+#endif
 
 	if (pd->spec_rev == USBPD_REV_20 || kstrtou32(buf, 0, &val)
 			|| val != 1) {
@@ -6645,6 +6681,10 @@ static ssize_t get_battery_status_store(struct device *dev,
 	struct usbpd *pd = dev_get_drvdata(dev);
 	u32 val;
 	int ret;
+
+#ifdef CONFIG_LGE_USB
+	usbpd_dbg(&pd->dev, "%s\n", __func__);
+#endif
 
 	if (pd->spec_rev == USBPD_REV_20 || kstrtou32(buf, 0, &val)
 			|| val != 1) {

@@ -2269,16 +2269,15 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
 			}
 		}
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
-		tp->ops->cleanup_rbuf(sk, copied);
-#else
-		tcp_cleanup_rbuf(sk, copied);
-#endif
-
 		if (copied >= target) {
 			/* Do not sleep, just process backlog. */
 			__sk_flush_backlog(sk);
 		} else {
+#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+			tp->ops->cleanup_rbuf(sk, copied);
+#else
+			tcp_cleanup_rbuf(sk, copied);
+#endif
 		        sk_defer_free_flush(sk);
 			sk_wait_data(sk, &timeo, last);
 		}

@@ -2028,14 +2028,17 @@ process:
 	if (mptcp(tcp_sk(sk))) {
 		meta_sk = mptcp_meta_sk(sk);
 
+		sk_defer_free_flush(meta_sk);
 		bh_lock_sock_nested(meta_sk);
 		if (sock_owned_by_user(meta_sk))
 			mptcp_prepare_for_backlog(sk, skb);
 	} else {
 		meta_sk = sk;
+		sk_defer_free_flush(sk);
 		bh_lock_sock_nested(sk);
 	}
 #else
+	sk_defer_free_flush(sk);
 	bh_lock_sock_nested(sk);
 #endif
 	tcp_segs_in(tcp_sk(sk), skb);

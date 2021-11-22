@@ -39,7 +39,9 @@
 
 static struct workqueue_struct *monitor_wq;
 extern struct list_head thermal_cdev_debug_list;
+#ifdef CONFIG_SCHED_WALT
 extern struct list_head cluster_head;
+#endif
 
 struct lge_monitor_thermal_data {
 	struct device *dev;
@@ -512,7 +514,9 @@ static DEVICE_ATTR(disable, S_IWUSR | S_IRUSR, lge_monitor_disable_get,
 static void _poll_monitor(struct lge_monitor_thermal_data *monitor_dd)
 {
 	struct thermal_cooling_device *cdev = NULL;
+#ifdef CONFIG_SCHED_WALT
 	struct sched_cluster *cluster;
+#endif
 	unsigned long state;
 	int ret;
 	union power_supply_propval prop = {0, };
@@ -633,6 +637,7 @@ static void _poll_monitor(struct lge_monitor_thermal_data *monitor_dd)
 			break;
 	}
 
+#ifdef CONFIG_SCHED_WALT
 	list_for_each_entry_rcu(cluster, &cluster_head, list) {
 		pr_info("[TM][C] Cluster->id[%d], cur_freq:%u, min_freq:%u, max_freq:%u\n",
 				cluster->id,
@@ -640,6 +645,7 @@ static void _poll_monitor(struct lge_monitor_thermal_data *monitor_dd)
 				cluster->min_freq,
 				cluster->max_freq);
 	}
+#endif
 }
 
 static void poll_monitor_work(struct work_struct *work)

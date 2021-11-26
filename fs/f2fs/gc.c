@@ -15,7 +15,7 @@
 #include <linux/freezer.h>
 #include <linux/sched/signal.h>
 #include <linux/pm_wakeup.h>
-#include <linux/msm_drm_notify.h>
+#include <linux/lge_panel_notify.h>
 #include <linux/power_supply.h>
 #include <uapi/linux/sched/types.h>
 
@@ -308,32 +308,44 @@ static void rapid_gc_fb_work(struct work_struct *work)
 	}
 }
 
-static int msm_drm_notifier_callback(struct notifier_block *self,
+static int lge_panel_notifier_callback(struct notifier_block *self,
 				unsigned long event, void *data)
 {
-	struct msm_drm_notifier *evdata = data;
+	struct lge_panel_notifier *panel_data = data;
 	int *blank;
 
-	if (event != MSM_DRM_EVENT_BLANK)
+	if (event == LGE_PANEL_EVENT_BLANK && *blank != LGE_PANEL_STATE_BLANK)
 		goto out;
 
-	if (!evdata || !evdata->data)
+	if (!panel_data || !(&(panel_data->state)))
 		goto out;
 
-	blank = evdata->data;
-	switch (*blank) {
-	case MSM_DRM_BLANK_POWERDOWN:
+	blank = &(panel_data->state);
+	if (event == LGE_PANEL_EVENT_POWER && *blank == LGE_PANEL_POWER_VDDIO_OFF) {
 		if (!screen_on)
 			goto out;
 		screen_on = false;
 		queue_work(system_power_efficient_wq, &rapid_gc_fb_worker);
-		break;
-	case MSM_DRM_BLANK_UNBLANK:
+	} else if (event == LGE_PANEL_EVENT_POWER && *blank == LGE_PANEL_POWER_DSV_OFF) {
+		if (!screen_on)
+			goto out;
+		screen_on = false;
+		queue_work(system_power_efficient_wq, &rapid_gc_fb_worker);
+	} else if (event == LGE_PANEL_EVENT_BLANK && *blank == LGE_PANEL_STATE_UNBLANK) {
 		if (screen_on)
 			goto out;
 		screen_on = true;
 		queue_work(system_power_efficient_wq, &rapid_gc_fb_worker);
-		break;
+	} else if (event == LGE_PANEL_EVENT_BLANK && *blank == LGE_PANEL_STATE_LP1) {
+		if (screen_on)
+			goto out;
+		screen_on = true;
+		queue_work(system_power_efficient_wq, &rapid_gc_fb_worker);
+	} else if (event == LGE_PANEL_EVENT_BLANK && *blank == LGE_PANEL_STATE_LP2) {
+		if (screen_on)
+			goto out;
+		screen_on = true;
+		queue_work(system_power_efficient_wq, &rapid_gc_fb_worker);
 	}
 
 out:
@@ -341,19 +353,19 @@ out:
 }
 
 static struct notifier_block fb_notifier_block = {
-	.notifier_call = msm_drm_notifier_callback,
+	.notifier_call = lge_panel_notifier_callback,
 };
 
 void __init f2fs_init_rapid_gc(void)
 {
 	INIT_WORK(&rapid_gc_fb_worker, rapid_gc_fb_work);
 	gc_wakelock = wakeup_source_register(NULL, "f2fs_rapid_gc_wakelock");
-	msm_drm_register_client(&fb_notifier_block);
+	lge_panel_notifier_register_client(&fb_notifier_block);
 }
 
 void __exit f2fs_destroy_rapid_gc(void)
 {
-	msm_drm_unregister_client(&fb_notifier_block);
+	lge_panel_notifier_unregister_client(&fb_notifier_block);
 	wakeup_source_unregister(gc_wakelock);
 }
 

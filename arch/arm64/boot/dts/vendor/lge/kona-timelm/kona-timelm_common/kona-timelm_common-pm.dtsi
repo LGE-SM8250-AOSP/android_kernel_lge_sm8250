@@ -531,7 +531,7 @@
 			lge,10k     = <3000    0    0>;
 			lge,22k     = <1500    0    0>;
 			lge,qc2     = <1800    0    0>;
-			lge,qc3     = <1800    0    0>;
+			lge,qc3     = <3200    0    0>;
 
 			lge,usb2    = < 500    0    0>;
 			lge,usb3    = < 900    0    0>;
@@ -610,7 +610,7 @@
 					restrict-name = "LCD";
 					restrict-type = "ibat";
 					restrict-commands = "ON", "OFF";
-					restrict-values = <2500      0>;
+					restrict-values = <0      0>;
 				};
 				lge,restrict@1 {
 					restrict-name = "CALL";

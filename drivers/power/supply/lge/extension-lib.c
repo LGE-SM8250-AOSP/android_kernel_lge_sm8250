@@ -78,10 +78,12 @@ irqreturn_t override_otg_fault_irq_handler(int irq, void *data)
 
 irqreturn_t override_chg_state_change_irq_handler(int irq, void *data)
 {
+#ifdef CONFIG_DEBUG_FS
 	const char str_charger_status[8][12] = {
 		"inhibit", "trickle", "precharge", "fullon",
 		"taper", "termination", "chg pause", "invalid"
 	};
+#endif
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
 
@@ -263,16 +265,22 @@ irqreturn_t override_usbin_uv_irq_handler(int irq, void *data)
 
 irqreturn_t override_switcher_power_ok_irq_handler(int irq, void *data)
 {
+#ifdef CONFIG_DEBUG_FS
 	const char str_power_path[4][9] =
 		{ "Not Used", "battery", "usbin", "dcin" };
+#endif
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger* chg = irq_data->parent_data;
+#ifdef CONFIG_DEBUG_FS
 	union power_supply_propval buf = { 0, };
+#endif
 	irqreturn_t rc = IRQ_NONE;
 	u8 stat;
 	int ret;
+#ifdef CONFIG_DEBUG_FS
 	int wlc_vnow = !power_supply_get_property(chg->dc_psy,
 		POWER_SUPPLY_PROP_VOLTAGE_NOW, &buf) ? buf.intval/1000 : -1;
+#endif
 
 	// Call and return original here
 	rc = switcher_power_ok_irq_handler(irq, data);

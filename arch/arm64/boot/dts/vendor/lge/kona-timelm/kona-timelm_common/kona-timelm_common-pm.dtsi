@@ -795,9 +795,9 @@
 			lge,wired-temp-offset = <(-40) (-10) (-10)>;   // thermal first, balanced, charging first
 			lge,wired-max-hold-criteria = <500 700 1000>;  // allow rising 1 degree per 20/14/10/min
 			lge,wired-stage-size = <3>;
-			lge,wired-target-temp = <300 340 380>;
-			lge,wired-current-limit-ma = <2600 1500 500>;
-			lge,wired-curr-cp-limit-ma = <4000 3000>;      // extension of lge,wired-current-limit-ma
+			lge,wired-target-temp = <360 390 420>;
+			lge,wired-current-limit-ma = <4500 3200 500>;
+			lge,wired-curr-cp-limit-ma = <4500 3200>;      // extension of lge,wired-current-limit-ma
                                                            // 0-pps, 1-qc3.0
 			lge,wired-max-fcc-ma = <4850 3200 3100>;       // 0-pps ta, 1- qc3.0 ta, 2-qc2.0 ta
 			lge,wired-current-step-size = <3>;

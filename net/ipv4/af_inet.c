@@ -105,7 +105,7 @@
 #include <net/ip_fib.h>
 #include <net/inet_connection_sock.h>
 #include <net/tcp.h>
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 #include <net/mptcp.h>
 #endif
 #include <net/udp.h>
@@ -170,7 +170,7 @@ void inet_sock_destruct(struct sock *sk)
 		return;
 	}
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	if (sock_flag(sk, SOCK_MPTCP))
 		mptcp_disable_static_key();
 #endif
@@ -269,7 +269,7 @@ EXPORT_SYMBOL(inet_listen);
  *	Create an inet socket.
  */
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 int inet_create(struct net *net, struct socket *sock, int protocol, int kern)
 #else
 static int inet_create(struct net *net, struct socket *sock, int protocol,
@@ -286,9 +286,6 @@ static int inet_create(struct net *net, struct socket *sock, int protocol,
 
 	if (protocol < 0 || protocol >= IPPROTO_MAX)
 		return -EINVAL;
-
-	if (!current_has_network())
-		return -EACCES;
 
 	sock->state = SS_UNCONNECTED;
 
@@ -338,7 +335,8 @@ lookup_protocol:
 	}
 
 	err = -EPERM;
-	if (sock->type == SOCK_RAW && !kern && !capable(CAP_NET_RAW))
+	if (sock->type == SOCK_RAW && !kern &&
+	    !ns_capable(net->user_ns, CAP_NET_RAW))
 		goto out_rcu_unlock;
 
 	sock->ops = answer->ops;
@@ -774,7 +772,7 @@ int inet_accept(struct socket *sock, struct socket *newsock, int flags,
 
 	sock_rps_record_flow(sk2);
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	if (sk2->sk_protocol == IPPROTO_TCP && mptcp(tcp_sk(sk2))) {
 		struct mptcp_tcp_sock *mptcp;
 
@@ -2000,14 +1998,14 @@ static int __init inet_init(void)
 
 	ip_init();
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
-	/* We must initialize MPTCP before TCP. */
-	mptcp_init();
-#endif
-
 	/* Initialise per-cpu ipv4 mibs */
 	if (init_ipv4_mibs())
 		panic("%s: Cannot init ipv4 mibs\n", __func__);
+
+#ifdef CONFIG_MPTCP
+	/* We must initialize MPTCP before TCP. */
+	mptcp_init();
+#endif
 
 	/* Setup TCP slab cache for open requests. */
 	tcp_init();

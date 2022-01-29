@@ -67,7 +67,7 @@
 #include <net/icmp.h>
 #include <net/inet_hashtables.h>
 #include <net/tcp.h>
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 #include <net/mptcp.h>
 #include <net/mptcp_v4.h>
 #endif
@@ -439,7 +439,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
 	struct inet_sock *inet;
 	const int type = icmp_hdr(icmp_skb)->type;
 	const int code = icmp_hdr(icmp_skb)->code;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	struct sock *sk, *meta_sk;
 #else
 	struct sock *sk;
@@ -472,7 +472,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
 				   (code == ICMP_NET_UNREACH ||
 				    code == ICMP_HOST_UNREACH)));
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	tp = tcp_sk(sk);
 	if (mptcp(tp))
 		meta_sk = mptcp_meta_sk(sk);
@@ -488,7 +488,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
 	 * We do take care of PMTU discovery (RFC1191) special case :
 	 * we can receive locally generated ICMP messages while socket is held.
 	 */
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	if (sock_owned_by_user(meta_sk)) {
 #else
 	if (sock_owned_by_user(sk)) {
@@ -505,7 +505,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
 	}
 
 	icsk = inet_csk(sk);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 #else
 	tp = tcp_sk(sk);
 #endif
@@ -542,7 +542,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
 				goto out;
 
 			WRITE_ONCE(tp->mtu_info, info);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 			if (!sock_owned_by_user(meta_sk)) {
 #else
 			if (!sock_owned_by_user(sk)) {
@@ -551,7 +551,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
 			} else {
 				if (!test_and_set_bit(TCP_MTU_REDUCED_DEFERRED, &sk->sk_tsq_flags))
 					sock_hold(sk);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 				if (mptcp(tp))
 					mptcp_tsq_flags(sk);
 #endif
@@ -568,7 +568,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
 		    !icsk->icsk_backoff || fastopen)
 			break;
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 		if (sock_owned_by_user(meta_sk))
 #else
 		if (sock_owned_by_user(sk))
@@ -595,7 +595,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
 		} else {
 			/* RTO revert clocked out retransmission.
 			 * Will retransmit now */
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 			tcp_sk(sk)->ops->retransmit_timer(sk);
 #else
 			tcp_retransmit_timer(sk);
@@ -619,7 +619,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
 		if (fastopen && !fastopen->sk)
 			break;
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 		if (!sock_owned_by_user(meta_sk)) {
 #else
 		if (!sock_owned_by_user(sk)) {
@@ -652,7 +652,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
 	 */
 
 	inet = inet_sk(sk);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	if (!sock_owned_by_user(meta_sk) && inet->recverr) {
 #else
 	if (!sock_owned_by_user(sk) && inet->recverr) {
@@ -664,7 +664,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
 	}
 
 out:
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	bh_unlock_sock(meta_sk);
 #else
 	bh_unlock_sock(sk);
@@ -703,7 +703,7 @@ EXPORT_SYMBOL(tcp_v4_send_check);
  *	Exception: precedence violation. We do not implement it in any case.
  */
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb)
 #else
 static void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb)
@@ -852,7 +852,7 @@ out:
    outside socket context is ugly, certainly. What can I do?
  */
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 static void tcp_v4_send_ack(const struct sock *sk,
 			    struct sk_buff *skb, u32 seq, u32 ack, u32 data_ack,
 			    u32 win, u32 tsval, u32 tsecr, int oif,
@@ -873,11 +873,9 @@ static void tcp_v4_send_ack(const struct sock *sk,
 #ifdef CONFIG_TCP_MD5SIG
 			   + (TCPOLEN_MD5SIG_ALIGNED >> 2)
 #endif
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 			   + ((MPTCP_SUB_LEN_DSS >> 2) +
 			      (MPTCP_SUB_LEN_ACK >> 2))
-#endif
 #endif
 			];
 	} rep;
@@ -924,7 +922,6 @@ static void tcp_v4_send_ack(const struct sock *sk,
 				    ip_hdr(skb)->daddr, &rep.th);
 	}
 #endif
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 	if (mptcp) {
 		int offset = (tsecr) ? 3 : 0;
@@ -939,7 +936,6 @@ static void tcp_v4_send_ack(const struct sock *sk,
 		rep.th.doff = arg.iov[0].iov_len / 4;
 	}
 #endif /* CONFIG_MPTCP */
-#endif
 
 	arg.flags = reply_flags;
 	arg.csum = csum_tcpudp_nofold(ip_hdr(skb)->daddr,
@@ -969,7 +965,7 @@ static void tcp_v4_timewait_ack(struct sock *sk, struct sk_buff *skb)
 {
 	struct inet_timewait_sock *tw = inet_twsk(sk);
 	struct tcp_timewait_sock *tcptw = tcp_twsk(sk);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	u32 data_ack = 0;
 	int mptcp = 0;
 
@@ -1004,7 +1000,7 @@ static void tcp_v4_timewait_ack(struct sock *sk, struct sk_buff *skb)
 	inet_twsk_put(tw);
 }
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 void tcp_v4_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
 			   struct request_sock *req)
 #else
@@ -1015,7 +1011,7 @@ static void tcp_v4_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
 	/* sk->sk_state == TCP_LISTEN -> for regular TCP_SYN_RECV
 	 * sk->sk_state == TCP_SYN_RECV -> for Fast Open.
 	 */
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	u32 seq = (sk->sk_state == TCP_LISTEN || is_meta_sk(sk)) ?
 					     tcp_rsk(req)->snt_isn + 1 :
 					     tcp_sk(sk)->snd_nxt;
@@ -1029,7 +1025,7 @@ static void tcp_v4_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
 	 * exception of <SYN> segments, MUST be right-shifted by
 	 * Rcv.Wind.Shift bits:
 	 */
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	tcp_v4_send_ack(sk, skb, seq,
 			tcp_rsk(req)->rcv_nxt, 0,
 			req->rsk_rcv_wnd >> inet_rsk(req)->rcv_wscale,
@@ -1059,7 +1055,7 @@ static void tcp_v4_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
  *	This still operates on a request_sock only, not on a big
  *	socket.
  */
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 int tcp_v4_send_synack(const struct sock *sk, struct dst_entry *dst,
 		       struct flowi *fl,
 		       struct request_sock *req,
@@ -1101,7 +1097,7 @@ static int tcp_v4_send_synack(const struct sock *sk, struct dst_entry *dst,
 /*
  *	IPv4 request_sock destructor.
  */
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 void tcp_v4_reqsk_destructor(struct request_sock *req)
 #else
 static void tcp_v4_reqsk_destructor(struct request_sock *req)
@@ -1487,7 +1483,7 @@ static bool tcp_v4_inbound_md5_hash(const struct sock *sk,
 	return false;
 }
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 static int tcp_v4_init_req(struct request_sock *req,
 			   const struct sock *sk_listener,
 			   struct sk_buff *skb,
@@ -1505,7 +1501,7 @@ static void tcp_v4_init_req(struct request_sock *req,
 	sk_daddr_set(req_to_sk(req), ip_hdr(skb)->saddr);
 	RCU_INIT_POINTER(ireq->ireq_opt, tcp_v4_save_options(net, skb));
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	return 0;
 #endif
 }
@@ -1527,7 +1523,7 @@ struct request_sock_ops tcp_request_sock_ops __read_mostly = {
 	.syn_ack_timeout =	tcp_syn_ack_timeout,
 };
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 const struct tcp_request_sock_ops tcp_request_sock_ipv4_ops = {
 #else
 static const struct tcp_request_sock_ops tcp_request_sock_ipv4_ops = {
@@ -1679,7 +1675,7 @@ put_and_exit:
 }
 EXPORT_SYMBOL(tcp_v4_syn_recv_sock);
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 struct sock *tcp_v4_cookie_check(struct sock *sk, struct sk_buff *skb)
 #else
 static struct sock *tcp_v4_cookie_check(struct sock *sk, struct sk_buff *skb)
@@ -1705,7 +1701,7 @@ static struct sock *tcp_v4_cookie_check(struct sock *sk, struct sk_buff *skb)
 int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 {
 	struct sock *rsk;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 
 	if (is_meta_sk(sk))
 		return mptcp_v4_do_rcv(sk, skb);
@@ -1862,11 +1858,9 @@ static void tcp_v4_fill_cb(struct sk_buff *skb, const struct iphdr *iph,
 	TCP_SKB_CB(skb)->end_seq = (TCP_SKB_CB(skb)->seq + th->syn + th->fin +
 				    skb->len - th->doff * 4);
 	TCP_SKB_CB(skb)->ack_seq = ntohl(th->ack_seq);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 	TCP_SKB_CB(skb)->mptcp_flags = 0;
 	TCP_SKB_CB(skb)->dss_off = 0;
-#endif
 #endif
 	TCP_SKB_CB(skb)->tcp_flags = tcp_flag_byte(th);
 	TCP_SKB_CB(skb)->tcp_tw_isn = 0;
@@ -1887,7 +1881,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
 	const struct iphdr *iph;
 	const struct tcphdr *th;
 	bool refcounted;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	struct sock *sk, *meta_sk = NULL;
 #else
 	struct sock *sk;
@@ -1945,7 +1939,7 @@ process:
 			reqsk_put(req);
 			goto csum_error;
 		}
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 		if (unlikely(sk->sk_state != TCP_LISTEN && !is_meta_sk(sk))) {
 #else
 		if (unlikely(sk->sk_state != TCP_LISTEN)) {
@@ -1953,7 +1947,7 @@ process:
 			inet_csk_reqsk_queue_drop_and_put(sk, req);
 			goto lookup;
 		}
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 		if (unlikely(is_meta_sk(sk) && !mptcp_can_new_subflow(sk))) {
 			inet_csk_reqsk_queue_drop_and_put(sk, req);
 			goto lookup;
@@ -1964,6 +1958,7 @@ process:
 		 */
 		sock_hold(sk);
 		refcounted = true;
+
 		nsk = NULL;
 		if (!tcp_filter(sk, skb)) {
 			th = (const struct tcphdr *)skb->data;
@@ -2024,7 +2019,7 @@ process:
 
 	sk_incoming_cpu_update(sk);
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	if (mptcp(tcp_sk(sk))) {
 		meta_sk = mptcp_meta_sk(sk);
 
@@ -2043,7 +2038,7 @@ process:
 #endif
 	tcp_segs_in(tcp_sk(sk), skb);
 	ret = 0;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	if (!sock_owned_by_user(meta_sk)) {
 		ret = tcp_v4_do_rcv(sk, skb);
 	} else if (tcp_add_backlog(meta_sk, skb)) {
@@ -2071,7 +2066,6 @@ no_tcp_socket:
 
 	tcp_v4_fill_cb(skb, iph, th);
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 	if (!sk && th->syn && !th->ack) {
 		int ret = mptcp_lookup_join(skb, NULL);
@@ -2083,7 +2077,6 @@ no_tcp_socket:
 			return 0;
 		}
 	}
-#endif
 #endif
 
 	if (tcp_checksum_complete(skb)) {
@@ -2134,7 +2127,6 @@ do_time_wait:
 			refcounted = false;
 			goto process;
 		}
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 		if (th->syn && !th->ack) {
 			int ret = mptcp_lookup_join(skb, inet_twsk(sk));
@@ -2146,7 +2138,6 @@ do_time_wait:
 				return 0;
 			}
 		}
-#endif
 #endif
 	}
 		/* to ACK */
@@ -2217,14 +2208,12 @@ static int tcp_v4_init_sock(struct sock *sk)
 
 	tcp_init_sock(sk);
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 	if (sock_flag(sk, SOCK_MPTCP))
 		icsk->icsk_af_ops = &mptcp_v4_specific;
 	else
 #endif
-#endif
-	icsk->icsk_af_ops = &ipv4_specific;
+		icsk->icsk_af_ops = &ipv4_specific;
 
 #ifdef CONFIG_TCP_MD5SIG
 	tcp_sk(sk)->af_specific = &tcp_sock_ipv4_specific;
@@ -2242,7 +2231,7 @@ void tcp_v4_destroy_sock(struct sock *sk)
 	tcp_clear_xmit_timers(sk);
 
 	tcp_cleanup_congestion_control(sk);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	if (mptcp(tp))
 		mptcp_destroy_sock(sk);
 	if (tp->inside_tk_table)
@@ -2758,12 +2747,10 @@ struct proto tcp_prot = {
 	.sysctl_rmem_offset	= offsetof(struct net, ipv4.sysctl_tcp_rmem),
 	.max_header		= MAX_TCP_HEADER,
 	.obj_size		= sizeof(struct tcp_sock),
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 	.useroffset		= offsetof(struct tcp_sock, mptcp_sched_name),
 	.usersize		= sizeof_field(struct tcp_sock, mptcp_sched_name) +
 				  sizeof_field(struct tcp_sock, mptcp_pm_name),
-#endif
 #endif
 	.slab_flags		= SLAB_TYPESAFE_BY_RCU,
 	.twsk_prot		= &tcp_timewait_sock_ops,
@@ -2775,10 +2762,8 @@ struct proto tcp_prot = {
 	.compat_getsockopt	= compat_tcp_getsockopt,
 #endif
 	.diag_destroy		= tcp_abort,
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 	.clear_sk		= mptcp_clear_sk,
-#endif
 #endif
 };
 EXPORT_SYMBOL(tcp_prot);

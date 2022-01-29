@@ -16,7 +16,7 @@
 #include <linux/siphash.h>
 #include <linux/kernel.h>
 #include <linux/export.h>
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 #include <net/mptcp.h>
 #include <net/mptcp_v4.h>
 #endif
@@ -183,7 +183,7 @@ u32 __cookie_v4_init_sequence(const struct iphdr *iph, const struct tcphdr *th,
 }
 EXPORT_SYMBOL_GPL(__cookie_v4_init_sequence);
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 __u32 cookie_v4_init_sequence(struct request_sock *req, const struct sock *sk,
 			      const struct sk_buff *skb, __u16 *mssp)
 #else
@@ -218,15 +218,13 @@ struct sock *tcp_get_cookie_sock(struct sock *sk, struct sk_buff *skb,
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	struct sock *child;
 	bool own_req;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 	int ret;
-#endif
 #endif
 
 	child = icsk->icsk_af_ops->syn_recv_sock(sk, skb, req, dst,
 						 NULL, &own_req);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+
 #ifdef CONFIG_MPTCP
 	if (!child)
 		goto listen_overflow;
@@ -240,7 +238,7 @@ struct sock *tcp_get_cookie_sock(struct sock *sk, struct sk_buff *skb,
 
 listen_overflow:
 #endif
-#endif
+
 	if (child) {
 		refcount_set(&req->rsk_refcnt, 1);
 		tcp_sk(child)->tsoffset = tsoff;
@@ -318,7 +316,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
 {
 	struct ip_options *opt = &TCP_SKB_CB(skb)->header.h4.opt;
 	struct tcp_options_received tcp_opt;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	struct mptcp_options_received mopt;
 #endif
 	struct inet_request_sock *ireq;
@@ -350,7 +348,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
 
 	/* check for timestamp cookie support */
 	memset(&tcp_opt, 0, sizeof(tcp_opt));
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	mptcp_init_mp_opt(&mopt);
 	tcp_parse_options(sock_net(sk), skb, &tcp_opt, &mopt, 0, NULL, NULL);
 #else
@@ -368,14 +366,12 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
 		goto out;
 
 	ret = NULL;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 	if (mopt.saw_mpc)
 		req = inet_reqsk_alloc(&mptcp_request_sock_ops, sk, false); /* for safety */
 	else
 #endif
-#endif
-	req = inet_reqsk_alloc(&tcp_request_sock_ops, sk, false); /* for safety */
+		req = inet_reqsk_alloc(&tcp_request_sock_ops, sk, false); /* for safety */
 	if (!req)
 		goto out;
 
@@ -395,7 +391,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
 	ireq->sack_ok		= tcp_opt.sack_ok;
 	ireq->wscale_ok		= tcp_opt.wscale_ok;
 	ireq->tstamp_ok		= tcp_opt.saw_tstamp;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	ireq->mptcp_rqsk	= 0;
 	ireq->saw_mpc		= 0;
 #endif
@@ -407,7 +403,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
 
 	ireq->ir_iif = inet_request_bound_dev_if(sk, skb);
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	if (mopt.saw_mpc)
 		mptcp_cookies_reqsk_init(req, &mopt, skb);
 #endif
@@ -450,7 +446,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
 	    (req->rsk_window_clamp > full_space || req->rsk_window_clamp == 0))
 		req->rsk_window_clamp = full_space;
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	tp->ops->select_initial_window(sk, full_space, req->mss,
 				       &req->rsk_rcv_wnd, &req->rsk_window_clamp,
 				       ireq->wscale_ok, &rcv_wscale,

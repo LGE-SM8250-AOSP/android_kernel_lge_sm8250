@@ -23,7 +23,7 @@
 #include <net/route.h>
 #include <net/tcp_states.h>
 #include <net/xfrm.h>
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 #include <net/mptcp.h>
 #endif
 #include <net/tcp.h>
@@ -738,7 +738,7 @@ static void reqsk_timer_handler(struct timer_list *t)
 	int max_retries, thresh;
 	u8 defer_accept;
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 	if (!is_meta_sk(sk_listener) && inet_sk_state_load(sk_listener) != TCP_LISTEN)
 		goto drop;
 
@@ -1039,11 +1039,12 @@ void inet_csk_listen_stop(struct sock *sk)
 	 */
 	while ((req = reqsk_queue_remove(queue, sk)) != NULL) {
 		struct sock *child = req->sk;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 		bool mutex_taken = false;
 		struct mptcp_cb *mpcb = tcp_sk(child)->mpcb;
 
 		if (is_meta_sk(child)) {
+			WARN_ON(refcount_inc_not_zero(&mpcb->mpcb_refcnt) == 0);
 			mutex_lock(&mpcb->mpcb_mutex);
 			mutex_taken = true;
 		}
@@ -1057,7 +1058,7 @@ void inet_csk_listen_stop(struct sock *sk)
 		reqsk_put(req);
 		bh_unlock_sock(child);
 		local_bh_enable();
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 		if (mutex_taken) {
 			mutex_unlock(&mpcb->mpcb_mutex);
 			mptcp_mpcb_put(mpcb);

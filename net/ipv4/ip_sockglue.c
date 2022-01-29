@@ -44,7 +44,7 @@
 #endif
 #include <net/ip_fib.h>
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 #include <net/mptcp.h>
 #endif
 
@@ -659,7 +659,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
 			break;
 		old = rcu_dereference_protected(inet->inet_opt,
 						lockdep_sock_is_held(sk));
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 		if (inet->is_icsk && !is_meta_sk(sk)) {
 #else
 		if (inet->is_icsk) {
@@ -757,7 +757,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
 			inet->tos = val;
 			sk->sk_priority = rt_tos2priority(val);
 			sk_dst_reset(sk);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 			/* Update TOS on mptcp subflow */
 			if (is_meta_sk(sk)) {
 				struct mptcp_tcp_sock *mptcp;

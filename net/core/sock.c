@@ -140,11 +140,9 @@
 
 #include <trace/events/sock.h>
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 #include <net/mptcp.h>
 #include <net/inet_common.h>
-#endif
 #endif
 
 #include <net/tcp.h>
@@ -1436,7 +1434,6 @@ lenout:
  */
 static inline void sock_lock_init(struct sock *sk)
 {
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 	/* Reclassify the lock-class for subflows */
 	if (sk->sk_type == SOCK_STREAM && sk->sk_protocol == IPPROTO_TCP)
@@ -1452,7 +1449,6 @@ static inline void sock_lock_init(struct sock *sk)
 			sk->sk_destruct = inet_sock_destruct;
 			return;
 		}
-#endif
 #endif
 
 	if (sk->sk_kern_sock)
@@ -1503,17 +1499,12 @@ static struct sock *sk_prot_alloc(struct proto *prot, gfp_t priority,
 		sk = kmem_cache_alloc(slab, priority & ~__GFP_ZERO);
 		if (!sk)
 			return sk;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
-		if (want_init_on_alloc(priority)) {
+		if (priority & __GFP_ZERO) {
 			if (prot->clear_sk)
 				prot->clear_sk(sk, prot->obj_size);
 			else
 				sk_prot_clear_nulls(sk, prot->obj_size);
 		}
-#else
-		if (want_init_on_alloc(priority))
-			sk_prot_clear_nulls(sk, prot->obj_size);
-#endif
 	} else
 		sk = kmalloc(prot->obj_size, priority);
 
@@ -1743,9 +1734,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
 		atomic_set(&newsk->sk_zckey, 0);
 
 		sock_reset_flag(newsk, SOCK_DONE);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 		sock_reset_flag(newsk, SOCK_MPTCP);
-#endif
 
 		/* sk->sk_memcg will be populated at accept() time */
 		newsk->sk_memcg = NULL;

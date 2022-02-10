@@ -1335,7 +1335,7 @@ static int touch_core_probe_normal(struct platform_device *pdev)
 	}
 #endif
 	ret = touch_request_irq(ts->irq, touch_irq_handler,
-			touch_irq_thread, ts->irqflags | IRQF_ONESHOT,
+			touch_irq_thread, ts->irqflags | IRQF_ONESHOT | IRQF_PRIME_AFFINE,
 			LGE_TOUCH_NAME, ts);
 	if (ret < 0) {
 		TOUCH_E("failed to request_thread_irq(irq:%d, ret:%d)\n",

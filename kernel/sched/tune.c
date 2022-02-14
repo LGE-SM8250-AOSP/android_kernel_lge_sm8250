@@ -274,6 +274,7 @@ bool task_sched_boost(struct task_struct *p)
 	return sched_boost_enabled;
 }
 
+#ifdef CONFIG_SCHED_WALT
 static u64
 sched_boost_override_read(struct cgroup_subsys_state *css,
 					struct cftype *cft)
@@ -292,6 +293,7 @@ static int sched_boost_override_write(struct cgroup_subsys_state *css,
 
 	return 0;
 }
+#endif
 
 static inline bool schedtune_boost_timeout(u64 now, u64 ts)
 {

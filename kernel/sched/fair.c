@@ -4104,9 +4104,10 @@ static inline void adjust_cpus_for_packing(struct task_struct *p,
 
 	if (*best_idle_cpu == -1 || *target_cpu == -1)
 		return;
-
+#ifdef CONFIG_SCHED_WALT
 	if (prefer_spread_on_idle(*best_idle_cpu, false))
 		fbt_env->need_idle |= 2;
+#endif
 
 	if (fbt_env->need_idle || task_placement_boost_enabled(p) || boosted ||
 		shallowest_idle_cstate <= 0) {
@@ -8851,7 +8852,9 @@ struct lb_env {
 	unsigned int		loop;
 	unsigned int		loop_break;
 	unsigned int		loop_max;
+#ifdef CONFIG_SCHED_WALT
 	bool			prefer_spread;
+#endif
 
 	enum fbq_type		fbq_type;
 	enum group_type		src_grp_type;
@@ -9031,7 +9034,11 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 		struct root_domain *rd = env->dst_rq->rd;
 
 		if ((rcu_dereference(rd->pd) && !sd_overutilized(env->sd)) &&
+#ifdef CONFIG_SCHED_WALT
 		    env->idle == CPU_NEWLY_IDLE && !env->prefer_spread &&
+#else
+		    env->idle == CPU_NEWLY_IDLE &&
+#endif
 		    !task_in_related_thread_group(p)) {
 			long util_cum_dst, util_cum_src;
 			unsigned long demand;
@@ -9223,9 +9230,12 @@ redo:
 		 * And load based checks are skipped for prefer_spread in
 		 * finding busiest group, ignore the task's h_load.
 		 */
-
+#ifdef CONFIG_SCHED_WALT
 		if (!env->prefer_spread &&
 			((cpu_rq(env->src_cpu)->nr_running > 2) ||
+#else
+		if (((cpu_rq(env->src_cpu)->nr_running > 2) ||
+#endif
 			(env->flags & LBF_IGNORE_BIG_TASKS)) &&
 			((load / 2) > env->imbalance))
 			goto next;
@@ -10055,6 +10065,7 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 	 * prefer to pick sg with more runnable tasks and break the ties
 	 * with utilization.
 	 */
+#ifdef CONFIG_SCHED_WALT
 	if (env->prefer_spread) {
 		if (sgs->sum_nr_running < busiest->sum_nr_running)
 			return false;
@@ -10062,6 +10073,7 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 			return true;
 		return sgs->group_util > busiest->group_util;
 	}
+#endif
 
 	if (sgs->avg_load <= busiest->avg_load)
 		return false;
@@ -10602,7 +10614,11 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 			int cpu_local, cpu_busiest;
 			unsigned long capacity_local, capacity_busiest;
 
+#ifdef CONFIG_SCHED_WALT
 			if (env->idle != CPU_NEWLY_IDLE && !env->prefer_spread)
+#else
+			if (env->idle != CPU_NEWLY_IDLE)
+#endif
 				goto out_balanced;
 
 			if (!sds.local || !sds.busiest)
@@ -10657,7 +10673,11 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 	 * task.
 	 */
 	if (env->idle != CPU_NOT_IDLE && group_has_capacity(env, local) &&
+#ifdef CONFIG_SCHED_WALT
 	    (busiest->group_no_capacity || env->prefer_spread))
+#else
+	    busiest->group_no_capacity)
+#endif
 		goto force_balance;
 
 	/* Misfit tasks should be dealt with regardless of the avg load */
@@ -10708,7 +10728,11 @@ force_balance:
 	 * If we couldn't find any imbalance, then boost the imbalance
 	 * based on the group util.
 	 */
+#ifdef CONFIG_SCHED_WALT
 	if (!env->imbalance && env->prefer_spread)
+#else
+	if (!env->imbalance)
+#endif
 		env->imbalance = (busiest->group_util >> 1);
 
 	trace_sched_load_balance_stats(sds.busiest->cpumask[0],
@@ -10966,10 +10990,16 @@ static int load_balance(int this_cpu, struct rq *this_rq,
 		.loop		= 0,
 	};
 
+#ifdef CONFIG_SCHED_WALT
 	env.prefer_spread = (prefer_spread_on_idle(this_cpu,
 				idle == CPU_NEWLY_IDLE) &&
 				!((sd->flags & SD_ASYM_CPUCAPACITY) &&
 				 !is_asym_cap_cpu(this_cpu)));
+#endif
+#if 0
+	env.prefer_spread = (!(sd->flags & SD_ASYM_CPUCAPACITY) &&
+				 !is_asym_cap_cpu(this_cpu));
+#endif
 
 	cpumask_and(cpus, sched_domain_span(sd), cpu_active_mask);
 
@@ -11262,7 +11292,11 @@ out:
 				 busiest ? busiest->nr_running : 0,
 				 env.imbalance, env.flags, ld_moved,
 				 sd->balance_interval, active_balance,
+#ifdef CONFIG_SCHED_WALT
 				 sd_overutilized(sd), env.prefer_spread);
+#else
+				 sd_overutilized(sd), false);
+#endif
 	return ld_moved;
 }
 
@@ -11502,8 +11536,12 @@ static void rebalance_domains(struct rq *rq, enum cpu_idle_type idle)
 		}
 		max_cost += sd->max_newidle_lb_cost;
 
+#ifdef CONFIG_SCHED_WALT
 		if (!sd_overutilized(sd) && !prefer_spread_on_idle(cpu,
 					idle == CPU_NEWLY_IDLE))
+#else
+		if (!sd_overutilized(sd))
+#endif
 			continue;
 
 		if (!(sd->flags & SD_LOAD_BALANCE))
@@ -11761,14 +11799,16 @@ static void nohz_balancer_kick(struct rq *rq)
 	 * is overutilized and has 2 tasks. The misfit task migration
 	 * happens from the tickpath.
 	 */
+#ifdef CONFIG_SCHED_WALT
 	if (static_branch_likely(&sched_energy_present)) {
 		if (rq->nr_running >= 2 && (cpu_overutilized(cpu) ||
 			prefer_spread_on_idle(cpu, false)))
 			flags = NOHZ_KICK_MASK;
 		goto out;
 	}
+#endif
 
-	if (rq->nr_running >= 2) {
+	if (rq->nr_running >= 2 || cpu_overutilized(cpu)) {
 		flags = NOHZ_KICK_MASK;
 		goto out;
 	}

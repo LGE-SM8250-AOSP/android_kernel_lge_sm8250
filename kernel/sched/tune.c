@@ -867,8 +867,8 @@ static void write_default_values(struct cgroup_subsys_state *css)
 			prefer_idle_write(css, NULL, tgt.prefer_idle);
 #ifdef CONFIG_SCHED_WALT
 			sched_colocate_write(css, NULL, tgt.colocate);
-#endif
 			sched_boost_override_write(css, NULL, tgt.no_override);
+#endif
 		}
 	}
 }

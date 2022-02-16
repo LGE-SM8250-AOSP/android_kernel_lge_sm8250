@@ -1122,7 +1122,7 @@ static int sde_rotator_init_queue(struct sde_rot_mgr *mgr)
 		}
 
 		ret = sched_setscheduler(mgr->commitq[i].rot_thread,
-			SCHED_FIFO, &param);
+			SCHED_RR, &param);
 		if (ret) {
 			SDEROT_ERR(
 				"failed to set kthread priority for commitq %d\n",
@@ -1153,7 +1153,7 @@ static int sde_rotator_init_queue(struct sde_rot_mgr *mgr)
 		}
 
 		ret = sched_setscheduler(mgr->doneq[i].rot_thread,
-			SCHED_FIFO, &param);
+			SCHED_RR, &param);
 		if (ret) {
 			SDEROT_ERR(
 				"failed to set kthread priority for doneq %d\n",
@@ -1559,7 +1559,7 @@ static void sde_rotator_commit_handler(struct kthread_work *work)
 		return;
 	}
 
-	ret = sched_setscheduler(entry->fenceq->rot_thread, SCHED_FIFO, &param);
+	ret = sched_setscheduler(entry->fenceq->rot_thread, SCHED_RR, &param);
 	if (ret) {
 		SDEROT_WARN("Fail to set kthread priority for fenceq: %d\n",
 				ret);

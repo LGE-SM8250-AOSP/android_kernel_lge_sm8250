@@ -3825,10 +3825,13 @@ int hdd_wlan_start_modules(struct hdd_context *hdd_ctx, bool reinit)
 		 * to FW when power save isn't enable.
 		 */
 		hdd_spectral_register_to_dbr(hdd_ctx);
-
+#ifdef WLAN_POWER_DEBUG
 		hdd_sysfs_create_driver_root_obj();
+#endif
 		hdd_sysfs_create_version_interface(hdd_ctx->psoc);
+#ifdef WLAN_POWER_DEBUG
 		hdd_sysfs_create_powerstats_interface();
+#endif
 		hdd_sysfs_dp_aggregation_create();
 		hdd_update_hw_sw_info(hdd_ctx);
 
@@ -3873,9 +3876,13 @@ int hdd_wlan_start_modules(struct hdd_context *hdd_ctx, bool reinit)
 
 destroy_driver_sysfs:
 	hdd_sysfs_dp_aggregation_destroy();
+#ifdef WLAN_POWER_DEBUG
 	hdd_sysfs_destroy_powerstats_interface();
+#endif
 	hdd_sysfs_destroy_version_interface();
+#ifdef WLAN_POWER_DEBUG
 	hdd_sysfs_destroy_driver_root_obj();
+#endif
 	cds_post_disable();
 
 unregister_notifiers:
@@ -13619,9 +13626,13 @@ int hdd_wlan_stop_modules(struct hdd_context *hdd_ctx, bool ftm_mode)
 	}
 
 	hdd_sysfs_dp_aggregation_destroy();
+#ifdef WLAN_POWER_DEBUG
 	hdd_sysfs_destroy_powerstats_interface();
+#endif
 	hdd_sysfs_destroy_version_interface();
+#ifdef WLAN_POWER_DEBUG
 	hdd_sysfs_destroy_driver_root_obj();
+#endif
 	hdd_debug("Closing CDS modules!");
 
 	if (hdd_get_conparam() != QDF_GLOBAL_EPPING_MODE) {

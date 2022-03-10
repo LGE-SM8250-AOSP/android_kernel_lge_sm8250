@@ -2,9 +2,9 @@
  * Copyright 2014-2017 NXP Semiconductors
  */
 
-#if !defined(DEBUG)
-#define DEBUG
-#endif
+// #if !defined(DEBUG)
+// #define DEBUG
+// #endif
 
 #include "tfa_container.h"
 #include "tfa.h"

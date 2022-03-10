@@ -3,9 +3,9 @@
  * Copyright 2020 GOODIX
  */
 
-#if !defined(DEBUG)
-#define DEBUG
-#endif
+// #if !defined(DEBUG)
+// #define DEBUG
+// #endif
 
 #include "dbgprint.h"
 #include "tfa_device.h"
@@ -3585,9 +3585,11 @@ enum tfa98xx_error tfa_run_speaker_boost(struct tfa_device *tfa,
 		__func__, value ? "cold" : "warm",
 		tfa->ext_dsp, profile);
 
+#ifdef TFA_DEBUG
 	pr_debug("Startup of device [%s] is a %sstart\n",
 		tfa_cont_device_name(tfa->cnt, tfa->dev_idx),
 		value ? "cold" : "warm");
+#endif
 
 	/* cold start */
 	if (value) {
@@ -4479,11 +4481,13 @@ enum tfa_error tfa_dev_start(struct tfa_device *tfa,
 	}
 
 	/* TfaRun_SpeakerBoost implies un-mute */
+#ifdef TFA_DEBUG
 	pr_debug("active_profile:%s, next_profile:%s\n",
 		tfa_cont_profile_name(tfa->cnt, tfa->dev_idx, active_profile),
 		tfa_cont_profile_name(tfa->cnt, tfa->dev_idx, next_profile));
 	pr_debug("Starting device [%s]\n",
 		tfa_cont_device_name(tfa->cnt, tfa->dev_idx));
+#endif
 
 #if defined(TFA_USE_OVERRIDING_PROFILE)
 	tfa->skip_dsp_msg = 0;

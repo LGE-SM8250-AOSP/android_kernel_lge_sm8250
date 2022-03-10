@@ -6,9 +6,9 @@
 
 #define pr_fmt(fmt) "%s(): " fmt, __func__
 
-#if !defined(DEBUG)
-#define DEBUG
-#endif
+// #if !defined(DEBUG)
+// #define DEBUG
+// #endif
 
 #include <linux/module.h>
 #include <linux/i2c.h>

@@ -7,9 +7,9 @@
 
 #define pr_fmt(fmt) "%s(): " fmt, __func__
 
-#if !defined(DEBUG)
-#define DEBUG
-#endif
+// #if !defined(DEBUG)
+// #define DEBUG
+// #endif
 
 #include <linux/module.h>
 #include <linux/i2c.h>
@@ -3543,6 +3543,7 @@ static void tfa98xx_monitor(struct work_struct *work)
 		mutex_unlock(&tfa98xx->dsp_lock);
 	}
 
+#if defined(TFA_USE_DEVICE_SPECIFIC_CONTROL)
 tfa_monitor_exit:
 	pr_info("%s: exit\n", __func__);
 
@@ -3558,6 +3559,7 @@ tfa_monitor_exit:
 	/* reschedule */
 	queue_delayed_work(tfa98xx->tfa98xx_wq,
 		&tfa98xx->monitor_work, 5 * HZ);
+#endif
 }
 
 static void tfa98xx_dsp_init(struct tfa98xx *tfa98xx)
@@ -4008,15 +4010,19 @@ static int tfa98xx_hw_params(struct snd_pcm_substream *substream,
 #endif
 	unsigned int rate;
 	int prof_idx;
+#ifdef TFA_DEBUG
 	int sample_size;
 	int slot_size;
+#endif
 
 	/* Supported */
 	rate = params_rate(params);
+#ifdef TFA_DEBUG
 	sample_size = snd_pcm_format_width(params_format(params));
 	slot_size = snd_pcm_format_physical_width(params_format(params));
 	pr_debug("Requested rate: %d, sample size: %d, physical size: %d\n",
 		rate, sample_size, slot_size);
+#endif
 #if defined(TFA_FULL_RATE_SUPPORT_WITH_POST_CONVERSION)
 	pr_info("forced to change rate: %d to %d\n", rate, sr_converted);
 	rate = sr_converted;
@@ -4031,8 +4037,10 @@ static int tfa98xx_hw_params(struct snd_pcm_substream *substream,
 		pr_err("tfa98xx: invalid sample rate %d.\n", rate);
 		return -EINVAL;
 	}
+#ifdef TFA_DEBUG
 	pr_debug("mixer profile:container profile = [%d:%d]\n",
 		tfa98xx_mixer_profile, prof_idx);
+#endif
 
 	/* update 'real' profile (container profile) */
 	tfa98xx->profile = prof_idx;
@@ -4056,8 +4064,10 @@ static int tfa98xx_mute(struct snd_soc_dai *dai, int mute, int stream)
 	struct tfa98xx *tfa98xx = snd_soc_codec_get_drvdata(codec);
 #endif
 
+#ifdef TFA_DEBUG 
 	dev_dbg(&tfa98xx->i2c->dev,
 		"%s: state: %d (stream = %d)\n", __func__, mute, stream);
+#endif
 
 	if (no_start) {
 		pr_debug("no_start parameter set no tfa_dev_start or tfa_dev_stop, returning\n");

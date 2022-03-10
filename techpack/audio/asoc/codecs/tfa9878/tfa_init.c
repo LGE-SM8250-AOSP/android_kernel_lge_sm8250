@@ -3,9 +3,9 @@
  * Copyright 2020 GOODIX
  */
 
-#if !defined(DEBUG)
-#define DEBUG
-#endif
+// #if !defined(DEBUG)
+// #define DEBUG
+// #endif
 
 #include "dbgprint.h"
 #include "tfa_service.h"

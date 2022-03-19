@@ -706,6 +706,22 @@ KBUILD_AFLAGS   += -O2
 KBUILD_LDFLAGS  += -O2
 endif
 
+ifeq ($(CONFIG_INLINE_OPTIMIZATION), y)
+ifeq ($(CONFIG_CC_IS_CLANG), y)
+KBUILD_CFLAGS	+= -mllvm -inline-threshold=600
+KBUILD_CFLAGS	+= -mllvm -inlinehint-threshold=750
+else ifeq ($(CONFIG_CC_IS_GCC), y)
+KBUILD_CFLAGS	+= --param max-inline-insns-single=600
+KBUILD_CFLAGS	+= --param max-inline-insns-auto=750
+
+# We limit inlining to 5KB on the stack.
+KBUILD_CFLAGS	+= --param large-stack-frame=12288
+
+KBUILD_CFLAGS	+= --param inline-min-speedup=5
+KBUILD_CFLAGS	+= --param inline-unit-growth=60
+endif
+endif
+
 # Enable Clang Polly optimizations
 ifeq ($(CONFIG_CC_IS_CLANG), y)
 KBUILD_CFLAGS	+= -mllvm -polly \

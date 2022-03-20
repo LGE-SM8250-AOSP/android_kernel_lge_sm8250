@@ -90,9 +90,6 @@ struct schedtune {
 	/* Boost value for tasks on that SchedTune CGroup */
 	int boost;
 
-	/* Toggle ability to override sched boost enabled */
-	bool sched_boost_no_override;
-
 	/*
 	 * Controls whether a cgroup is eligible for sched boost or not. This
 	 * can temporariliy be disabled by the kernel based on the no_override
@@ -101,6 +98,9 @@ struct schedtune {
 	bool sched_boost_enabled;
 
 #ifdef CONFIG_SCHED_WALT
+	/* Toggle ability to override sched boost enabled */
+	bool sched_boost_no_override;
+
 	/*
 	 * Controls whether tasks of this cgroup should be colocated with each
 	 * other and tasks of other cgroups that have the same flag turned on.
@@ -147,9 +147,9 @@ static inline struct schedtune *parent_st(struct schedtune *st)
 static struct schedtune
 root_schedtune = {
 	.boost	= 0,
-	.sched_boost_no_override = false,
 	.sched_boost_enabled = true,
 #ifdef CONFIG_SCHED_WALT
+	.sched_boost_no_override = false,
 	.colocate = false,
 	.colocate_update_disabled = false,
 #endif
@@ -208,9 +208,9 @@ DEFINE_PER_CPU(struct boost_groups, cpu_boost_groups);
 
 static inline void init_sched_boost(struct schedtune *st)
 {
-	st->sched_boost_no_override = false;
 	st->sched_boost_enabled = true;
 #ifdef CONFIG_SCHED_WALT
+	st->sched_boost_no_override = false;
 	st->colocate = false;
 	st->colocate_update_disabled = false;
 #endif /* CONFIG_SCHED_WALT */
@@ -224,8 +224,10 @@ void update_cgroup_boost_settings(void)
 		if (!allocated_group[i])
 			break;
 
+#ifdef CONFIG_SCHED_WALT
 		if (allocated_group[i]->sched_boost_no_override)
 			continue;
+#endif
 
 		allocated_group[i]->sched_boost_enabled = false;
 	}
@@ -256,6 +258,7 @@ bool task_sched_boost(struct task_struct *p)
 	return sched_boost_enabled;
 }
 
+#ifdef CONFIG_SCHED_WALT
 static u64
 sched_boost_override_read(struct cgroup_subsys_state *css,
 					struct cftype *cft)
@@ -274,6 +277,7 @@ static int sched_boost_override_write(struct cgroup_subsys_state *css,
 
 	return 0;
 }
+#endif
 
 static inline bool schedtune_boost_timeout(u64 now, u64 ts)
 {
@@ -737,26 +741,6 @@ boost_write(struct cgroup_subsys_state *css, struct cftype *cft,
 }
 
 #ifdef CONFIG_STUNE_ASSIST
-static int sched_boost_override_write_wrapper(struct cgroup_subsys_state *css,
-					      struct cftype *cft, u64 override)
-{
-	if (task_is_booster(current))
-		return 0;
-
-	return sched_boost_override_write(css, cft, override);
-}
-
-#ifdef CONFIG_SCHED_WALT
-static int sched_colocate_write_wrapper(struct cgroup_subsys_state *css,
-					struct cftype *cft, u64 colocate)
-{
-	if (task_is_booster(current))
-		return 0;
-
-	return sched_colocate_write(css, cft, colocate);
-}
-#endif
-
 static int boost_write_wrapper(struct cgroup_subsys_state *css,
 			       struct cftype *cft, s64 boost)
 {
@@ -780,13 +764,13 @@ static struct cftype files[] = {
 	{
 		.name = "sched_boost_no_override",
 		.read_u64 = sched_boost_override_read,
-		.write_u64 = sched_boost_override_write_wrapper,
+		.write_u64 = sched_boost_override_write,
 	},
 #ifdef CONFIG_SCHED_WALT
 	{
 		.name = "colocate",
 		.read_u64 = sched_colocate_read,
-		.write_u64 = sched_colocate_write_wrapper,
+		.write_u64 = sched_colocate_write,
 	},
 #endif
 	{
@@ -831,18 +815,16 @@ struct st_data {
 	char *name;
 	int boost;
 	bool prefer_idle;
-	bool colocate;
-	bool no_override;
 };
 
 static void write_default_values(struct cgroup_subsys_state *css)
 {
 	static struct st_data st_targets[] = {
-		{ "audio-app",	0, 0, 0, 0 },
-		{ "background",	0, 0, 0, 0 },
-		{ "foreground",	0, 1, 0, 1 },
-		{ "rt",		0, 0, 0, 0 },
-		{ "top-app",	1, 1, 0, 1 },
+		{ "audio-app",	0, 0 },
+		{ "background",	0, 0 },
+		{ "foreground",	1, 1 },
+		{ "rt",		0, 0 },
+		{ "top-app",	1, 1 },
 	};
 	int i;
 
@@ -850,16 +832,8 @@ static void write_default_values(struct cgroup_subsys_state *css)
 		struct st_data tgt = st_targets[i];
 
 		if (!strcmp(css->cgroup->kn->name, tgt.name)) {
-			pr_info("stune_assist: setting values for %s: boost=%d prefer_idle=%d colocate=%d no_override=%d\n",
-				tgt.name, tgt.boost, tgt.prefer_idle,
-				tgt.colocate, tgt.no_override);
-
 			boost_write(css, NULL, tgt.boost);
 			prefer_idle_write(css, NULL, tgt.prefer_idle);
-#ifdef CONFIG_SCHED_WALT
-			sched_colocate_write(css, NULL, tgt.colocate);
-#endif
-			sched_boost_override_write(css, NULL, tgt.no_override);
 		}
 	}
 }

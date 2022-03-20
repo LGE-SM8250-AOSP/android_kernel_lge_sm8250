@@ -10,10 +10,9 @@
 #include <linux/input.h>
 #include <linux/kthread.h>
 #include <linux/moduleparam.h>
-#include <linux/msm_drm_notify.h>
+#include <linux/lge_panel_notify.h>
 #include <linux/slab.h>
 #include <linux/version.h>
-#include <drm/drm_panel.h>
 
 /* The sched_param struct is located elsewhere in newer kernels */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
@@ -58,7 +57,7 @@ struct boost_drv {
 	struct delayed_work input_unboost;
 	struct delayed_work max_unboost;
 	struct notifier_block cpu_notif;
-	struct notifier_block msm_drm_notif;
+	struct notifier_block lge_panel_notif;
 	wait_queue_head_t boost_waitq;
 	atomic_long_t max_boost_expires;
 	unsigned long state;
@@ -248,24 +247,39 @@ static int cpu_notifier_cb(struct notifier_block *nb, unsigned long action,
 	return NOTIFY_OK;
 }
 
-static int msm_drm_notifier_cb(struct notifier_block *nb, unsigned long action,
+static int lge_panel_notifier_cb(struct notifier_block *nb, unsigned long action,
 			  void *data)
 {
-	struct boost_drv *b = container_of(nb, typeof(*b), msm_drm_notif);
-	struct msm_drm_notifier *evdata = data;
-	int *blank = evdata->data;
+	struct boost_drv *b = container_of(nb, typeof(*b), lge_panel_notif);
+	struct lge_panel_notifier *panel_data = data;
 
-	/* Parse framebuffer blank events as soon as they occur */
-	if (action != MSM_DRM_EARLY_EVENT_BLANK)
-		return NOTIFY_OK;
-
-	/* Boost when the screen turns on and unboost when it turns off */
-	if (*blank == MSM_DRM_BLANK_UNBLANK) {
-		clear_bit(SCREEN_OFF, &b->state);
-		__cpu_input_boost_kick_max(b, wake_boost_duration);
-	} else {
-		set_bit(SCREEN_OFF, &b->state);
-		wake_up(&b->boost_waitq);
+	switch (action) {
+		case LGE_PANEL_EVENT_RESET:
+			break;
+		case LGE_PANEL_EVENT_RECOVERY:
+			break;
+		case LGE_PANEL_EVENT_DUAL_DISPLAY:
+			break;
+		case LGE_PANEL_EVENT_BLANK:
+			if (panel_data->state == LGE_PANEL_STATE_UNBLANK) {
+				clear_bit(SCREEN_OFF, &b->state);
+				__cpu_input_boost_kick_max(b, wake_boost_duration);
+			} else {
+				set_bit(SCREEN_OFF, &b->state);
+				wake_up(&b->boost_waitq);
+			}
+			break;
+		case LGE_PANEL_EVENT_POWER:
+			if (panel_data->state == LGE_PANEL_POWER_VDDIO_ON) {
+				clear_bit(SCREEN_OFF, &b->state);
+				__cpu_input_boost_kick_max(b, wake_boost_duration);
+			} else {
+				set_bit(SCREEN_OFF, &b->state);
+				wake_up(&b->boost_waitq);
+			}
+			break;
+		default:
+			break;
 	}
 
 	return NOTIFY_OK;
@@ -353,8 +367,6 @@ static struct input_handler cpu_input_boost_input_handler = {
 	.id_table	= cpu_input_boost_ids
 };
 
-extern struct drm_panel *lcd_active_panel;
-
 static int __init cpu_input_boost_init(void)
 {
 	struct boost_drv *b = &boost_drv_g;
@@ -375,16 +387,12 @@ static int __init cpu_input_boost_init(void)
 		goto unregister_cpu_notif;
 	}
 
-	b->msm_drm_notif.notifier_call = msm_drm_notifier_cb;
-	b->msm_drm_notif.priority = INT_MAX;
-	if (lcd_active_panel) {
-		ret = drm_panel_notifier_register(lcd_active_panel, &b->msm_drm_notif);
-		if (ret) {
-			pr_err("Unable to register fb_notifier: %d\n", ret);
-			goto unregister_handler;
-		}
-	} else {
-		pr_err("lcd_active_panel is null\n");
+	b->lge_panel_notif.notifier_call = lge_panel_notifier_cb;
+	b->lge_panel_notif.priority = INT_MAX;
+	ret = lge_panel_notifier_register_client(&b->lge_panel_notif);
+	if (ret) {
+		pr_err("Unable to register fb_notifier: %d\n", ret);
+		goto unregister_handler;
 	}
 
 	thread = kthread_run(cpu_boost_thread, b, "cpu_boostd");
@@ -397,7 +405,7 @@ static int __init cpu_input_boost_init(void)
 	return 0;
 
 unregister_fb_notif:
-	msm_drm_unregister_client(&b->msm_drm_notif);
+	lge_panel_notifier_unregister_client(&b->lge_panel_notif);
 unregister_handler:
 	input_unregister_handler(&cpu_input_boost_input_handler);
 unregister_cpu_notif:

@@ -26,8 +26,7 @@ TFA_SRC_DIR              =$(AUDIO_ROOT)/asoc/codecs/$(TFA_VERSION)
 ifeq ($(KERNEL_BUILD), 1)
 	# These are configurable via Kconfig for kernel-based builds
 	# Need to explicitly configure for Android-based builds
-	AUDIO_BLD_DIR := $(shell pwd)/kernel/msm-4.19
-	AUDIO_ROOT := $(AUDIO_BLD_DIR)/techpack/audio
+	AUDIO_ROOT := techpack/audio
 endif
 
 
@@ -83,27 +82,22 @@ ifdef CONFIG_ARCH_LITO
 	SND_SOC_TFA9878_OBJS += tfa9878_lito/tfa_container.o
 	SND_SOC_TFA9878_OBJS += tfa9878_lito/tfa_dsp.o
 	SND_SOC_TFA9878_OBJS += tfa9878_lito/tfa_init.o
-ifdef TFA_DEBUG
-	SND_SOC_TFA9878_OBJS += tfa9878_lito/tfa_debug.o
-endif
 else
-	SND_SOC_TFA9878_OBJS += tfa98xx.o
-	SND_SOC_TFA9878_OBJS += tfa_container.o
-	SND_SOC_TFA9878_OBJS += tfa_dsp.o
-	SND_SOC_TFA9878_OBJS += tfa_init.o
-ifdef TFA_DEBUG
-	SND_SOC_TFA9878_OBJS += tfa_debug.o
-endif
+	SND_SOC_TFA9878_OBJS += src/tfa98xx.o
+	SND_SOC_TFA9878_OBJS += src/tfa_container.o
+	SND_SOC_TFA9878_OBJS += src/tfa_dsp.o
+	SND_SOC_TFA9878_OBJS += src/tfa_init.o
 endif
 endif
 
-LINUX_INC +=	-Iinclude/linux
+LINUX_INC +=	-Iinclude/linux -Iinc
 
 INCS +=		$(COMMON_INC) \
 		$(UAPI_INC) \
 		$(TFA9878_INC)
 
 EXTRA_CFLAGS += $(INCS)
+ccflags-y += $(INCS)
 
 
 CDEFINES +=	-DANI_LITTLE_BYTE_ENDIAN \

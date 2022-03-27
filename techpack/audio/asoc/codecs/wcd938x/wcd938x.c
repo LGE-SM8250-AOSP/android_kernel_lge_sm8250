@@ -1765,8 +1765,8 @@ static int wcd938x_codec_enable_adc(struct snd_soc_dapm_widget *w,
 		clear_bit(w->shift, &wcd938x->status_mask);
 		break;
 	};
-
-	return 0;
+	ret = 0;
+	return ret;
 }
 
 void wcd938x_disable_bcs_before_slow_insert(struct snd_soc_component *component,

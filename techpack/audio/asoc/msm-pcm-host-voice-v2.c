@@ -989,8 +989,8 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 	struct hpcm_drv *prtd;
 	unsigned long dsp_flags;
 	struct dai_data *dai_data = NULL;
-	struct tap_point *tp = NULL;
-	struct tappnt_mxr_data *tmd = NULL;
+	// struct tap_point *tp = NULL;
+	// struct tappnt_mxr_data *tmd = NULL;
 	char *sess_name = NULL;
 
 	if (substream == NULL) {
@@ -1014,9 +1014,9 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 	wake_up(&dai_data->queue_wait);
 	mutex_lock(&prtd->lock);
 
-	tmd = hpcm_get_tappnt_mixer_data(substream->pcm->id, prtd);
+	// tmd = hpcm_get_tappnt_mixer_data(substream->pcm->id, prtd);
 
-	tp = hpcm_get_tappoint_data(substream->pcm->id, prtd);
+	// tp = hpcm_get_tappoint_data(substream->pcm->id, prtd);
 	/* Send stop command */
 	voc_send_cvp_stop_vocpcm(voc_get_session_id(sess_name));
 	/* Memory unmap/free takes place only when called the first time */

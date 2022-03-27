@@ -320,7 +320,6 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	enum wcd_mbhc_plug_type plug_type = MBHC_PLUG_TYPE_NONE;
 	int hphl_adc_res = 0, hphr_adc_res = 0;
 	u8 fsm_en = 0;
-	int ret = 0;
 	u8 adc_mode = 0;
 	u8 elect_ctl = 0;
 	u8 adc_en = 0;
@@ -357,7 +356,6 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	hphl_adc_res = wcd_measure_adc_once(mbhc, MUX_CTL_HPH_L);
 	if (hphl_adc_res < 0) {
 		pr_err("%s: hphl_adc_res adc measurement failed\n", __func__);
-		ret = hphl_adc_res;
 		goto done;
 	}
 
@@ -365,7 +363,6 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	hphr_adc_res = wcd_measure_adc_once(mbhc, MUX_CTL_HPH_R);
 	if (hphr_adc_res < 0) {
 		pr_err("%s: hphr_adc_res adc measurement failed\n", __func__);
-		ret = hphr_adc_res;
 		goto done;
 	}
 
@@ -907,7 +904,7 @@ correct_plug_type:
 				hs_threshold = (hs_threshold *
 				     wcd_mbhc_get_micbias(mbhc)) / micbias_mv;
 				spl_hs = true;
-				mbhc->micbias_enable = true;
+				mbhc->micbias_enable = spl_hs;
 			}
 		}
 

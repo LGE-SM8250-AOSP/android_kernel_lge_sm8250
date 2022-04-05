@@ -695,7 +695,7 @@ static struct task_struct *ion_create_kworker(struct ion_page_pool **pools,
 	attr.sched_nice = ION_KTHREAD_NICE_VAL;
 	buf = cached ? "cached" : "uncached";
 
-	thread = kthread_run(ion_sys_heap_worker, pools,
+	thread = kthread_run_perf_critical(cpu_perf_mask, ion_sys_heap_worker, pools,
 			     "ion-pool-%s-worker", buf);
 	if (IS_ERR(thread)) {
 		pr_err("%s: failed to create %s worker thread: %ld\n",

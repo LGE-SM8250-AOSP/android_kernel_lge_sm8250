@@ -732,12 +732,19 @@ endif
 # Enable Clang Polly optimizations
 ifeq ($(CONFIG_CC_IS_CLANG), y)
 KBUILD_CFLAGS	+= -mllvm -polly \
+		   -mllvm -polly-num-threads=16 \
+		   -mllvm -polly-scheduling=dynamic \
+		   -mllvm -polly-scheduling-chunksize=4 \
+		   -mllvm -polly-postopts=1 \
+                   -mllvm -polly-reschedule=1 \
 		   -mllvm -polly-run-dce \
 		   -mllvm -polly-run-inliner \
-		   -mllvm -polly-opt-fusion=max \
+		   -mllvm -polly-isl-arg=--no-schedule-serialize-sccs \
 		   -mllvm -polly-ast-use-context \
 		   -mllvm -polly-detect-keep-going \
+		   -mllvm -polly-position=before-vectorizer \
 		   -mllvm -polly-vectorizer=stripmine \
+		   -mllvm -polly-detect-profitability-min-per-loop-insts=40 \
 		   -mllvm -polly-invariant-load-hoisting
 endif
 
@@ -918,11 +925,6 @@ lto-clang-flags	:= -flto
 endif
 lto-clang-flags += -fvisibility=default $(call cc-option, -fsplit-lto-unit)
 
-# Limit inlining across translation units to reduce binary size
-LD_FLAGS_LTO_CLANG := -mllvm -import-instr-limit=5
-
-KBUILD_LDFLAGS += $(LD_FLAGS_LTO_CLANG)
-KBUILD_LDFLAGS_MODULE += $(LD_FLAGS_LTO_CLANG)
 
 KBUILD_LDFLAGS_MODULE += -T scripts/module-lto.lds
 

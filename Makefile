@@ -736,6 +736,7 @@ KBUILD_CFLAGS	+= -mllvm -polly \
 		   -mllvm -polly-scheduling=dynamic \
 		   -mllvm -polly-scheduling-chunksize=4 \
 		   -mllvm -polly-postopts=1 \
+		   -mllvm -polly-loopfusion-greedy=1 \
                    -mllvm -polly-reschedule=1 \
 		   -mllvm -polly-run-dce \
 		   -mllvm -polly-run-inliner \

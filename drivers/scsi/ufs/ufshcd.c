@@ -460,10 +460,6 @@ static struct ufs_dev_fix ufs_fixups[] = {
 		UFS_DEVICE_QUIRK_PA_TACTIVATE),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, "THGLF2G9D8KBADG",
 		UFS_DEVICE_QUIRK_PA_TACTIVATE),
-#ifdef CONFIG_LFS_IOSCHED_EXTENSION
-	UFS_FIX(UFS_VENDOR_TOSHIBA, UFS_ANY_MODEL,
-		UFS_DEVICE_QUIRK_CMD_ORDERED),
-#endif
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL, UFS_DEVICE_NO_VCCQ),
 #ifdef CONFIG_LFS_UFS
 	UFS_FIX(UFS_ANY_VENDOR, UFS_ANY_MODEL,
@@ -3655,16 +3651,6 @@ static int ufshcd_comp_scsi_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	if (likely(lrbp->cmd)) {
 		ret = ufshcd_prepare_req_desc_hdr(hba, lrbp,
 				&upiu_flags, lrbp->cmd->sc_data_direction);
-
-#ifdef CONFIG_LFS_IOSCHED_EXTENSION
-		if (hba->dev_info.quirks & UFS_DEVICE_QUIRK_CMD_ORDERED) {
-			if ( (req_op(lrbp->cmd->request) == REQ_OP_WRITE) &&
-				 (lrbp->cmd->request->bio) &&
-				 (lrbp->cmd->request->bio->bi_excontrol & REQ_EX_ORDERED)) {
-				upiu_flags |= UPIU_TASK_ATTR_ORDERED;
-			}
-		}
-#endif
 
 		ufshcd_prepare_utp_scsi_cmd_upiu(lrbp, upiu_flags);
 	} else {
@@ -8735,14 +8721,7 @@ static void ufs_fixup_device_setup(struct ufs_hba *hba,
 		     f->w_manufacturer_id == UFS_ANY_VENDOR) &&
 		    (STR_PRFX_EQUAL(f->model, dev_desc->model) ||
 		     !strcmp(f->model, UFS_ANY_MODEL)))
-#ifdef CONFIG_LFS_UFS
-			{
-				dev_err(hba->dev, "[LGE][UFS] update quirks, manufacturerid:%d, model:%s, quirk:0x%x\n", f->w_manufacturer_id, f->model, f->quirk);
-				hba->dev_info.quirks |= f->quirk;
-			}
-#else
 			hba->dev_info.quirks |= f->quirk;
-#endif
 	}
 }
 

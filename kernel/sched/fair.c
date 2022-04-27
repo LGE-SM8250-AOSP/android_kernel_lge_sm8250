@@ -178,10 +178,10 @@ unsigned int sched_capacity_margin_down_boosted[CPU_NR] = {
 }; /* not used for small cores, 72% margin for big, 72% margin for big+ */
 
 /* 1ms default for 20ms window size scaled to 1024 */
-unsigned int sysctl_sched_min_task_util_for_boost = 51;
+// unsigned int sysctl_sched_min_task_util_for_boost = 51;
 /* 0.68ms default for 20ms window size scaled to 1024 */
-unsigned int sysctl_sched_min_task_util_for_colocation = 35;
-__read_mostly unsigned int sysctl_sched_prefer_spread;
+// unsigned int sysctl_sched_min_task_util_for_colocation = 35;
+// __read_mostly unsigned int sysctl_sched_prefer_spread;
 unsigned int sched_small_task_threshold = 102;
 __read_mostly unsigned int sysctl_sched_force_lb_enable = 1;
 
@@ -3929,7 +3929,7 @@ static inline bool cpu_is_in_target_set(struct task_struct *p, int cpu)
 	struct root_domain *rd = cpu_rq(cpu)->rd;
 	int first_cpu, next_usable_cpu;
 #ifdef CONFIG_SCHED_TUNE
-	if (schedtune_prefer_high_cap(p)) {
+	if (schedtune_task_boost(p) > 0) {
 #else
 	if (uclamp_boosted(p)) {
 #endif
@@ -3969,13 +3969,11 @@ static inline bool task_fits_capacity(struct task_struct *p,
 	 */
 	if (capacity_orig_of(task_cpu(p)) > capacity_orig_of(cpu))
 		margin = schedtune_task_boost(p) > 0 &&
-			  !schedtune_prefer_high_cap(p) &&
 			   p->prio <= DEFAULT_PRIO ?
 			sched_capacity_margin_down_boosted[task_cpu(p)] :
 			sched_capacity_margin_down[task_cpu(p)];
 	else
 		margin = schedtune_task_boost(p) > 0 &&
-			  !schedtune_prefer_high_cap(p) &&
 			   p->prio <= DEFAULT_PRIO ?
 			sched_capacity_margin_up_boosted[task_cpu(p)] :
 			sched_capacity_margin_up[task_cpu(p)];
@@ -4038,9 +4036,6 @@ static inline void adjust_cpus_for_packing(struct task_struct *p,
 
 	if (*best_idle_cpu == -1 || *target_cpu == -1)
 		return;
-
-	if (prefer_spread_on_idle(*best_idle_cpu))
-		fbt_env->need_idle |= 2;
 
 	if (fbt_env->need_idle || task_placement_boost_enabled(p) || boosted ||
 		shallowest_idle_cstate <= 0) {
@@ -5522,7 +5517,7 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &p->se;
 	bool prefer_idle = sched_feat(EAS_PREFER_IDLE) ?
-				(schedtune_prefer_idle(p) > 0) : 0;
+				(schedtune_task_boost(p) > 0) : 0;
 	int idle_h_nr_running = idle_policy(p->policy);
 
 	/*
@@ -7025,7 +7020,7 @@ static int get_start_cpu(struct task_struct *p, bool sync_boost)
 	int start_cpu = rd->min_cap_orig_cpu;
 	int task_boost = per_task_boost(p);
 #ifdef CONFIG_SCHED_TUNE
-	bool boosted = (schedtune_prefer_high_cap(p) &&
+	bool boosted = (schedtune_task_boost(p) > 0 &&
 				    p->prio <= DEFAULT_PRIO) ||
 #else
 	bool boosted = uclamp_boosted(p) ||
@@ -7312,7 +7307,7 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 				 * Skip searching for active CPU for tasks have
 				 * prefer_high_cap.
 				 */
-				if (schedtune_prefer_high_cap(p))
+				if (schedtune_task_boost(p) > 0)
 					continue;
 				/*
 				 * Case A.2: Target ACTIVE CPU
@@ -7531,7 +7526,7 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 			best_idle_cpu != -1) {
 		curr_tsk = READ_ONCE(cpu_rq(target_cpu)->curr);
 #ifdef CONFIG_SCHED_TUNE
-		if (curr_tsk && schedtune_prefer_high_cap(curr_tsk))
+		if (curr_tsk && schedtune_task_boost(curr_tsk) > 0)
 #else
 		if (curr_tsk && uclamp_boosted(curr_tsk))
 #endif
@@ -7741,7 +7736,7 @@ static void select_cpu_candidates(struct sched_domain *sd, cpumask_t *cpus,
 	unsigned long spare_cap, max_spare_cap, util, cpu_cap;
 	bool prefer_idle = uclamp_latency_sensitive(p);
 #ifdef CONFIG_SCHED_TUNE
-	bool prefer_high_cap = schedtune_prefer_high_cap(p);
+	bool prefer_high_cap = schedtune_task_boost(p) > 0;
 #else
 	bool prefer_high_cap = uclamp_boosted(p);
 #endif
@@ -7909,7 +7904,7 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	int task_boost = per_task_boost(p);
 	int boosted = (uclamp_boosted(p) > 0) || (task_boost > 0);
 #ifdef CONFIG_SCHED_TUNE
-	bool prefer_high_cap = schedtune_prefer_high_cap(p);
+	bool prefer_high_cap = schedtune_task_boost(p) > 0;
 #else
 	bool prefer_high_cap = boosted;
 #endif
@@ -7998,7 +7993,7 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 				}
 			}
 		}
-		if (schedtune_prefer_high_cap(p))
+		if (schedtune_task_boost(p) > 0)
 			/*
 			 * Now let the search in
 			 * select_task_rq_fair continue.
@@ -8788,7 +8783,6 @@ struct lb_env {
 	unsigned int		loop;
 	unsigned int		loop_break;
 	unsigned int		loop_max;
-	bool			prefer_spread;
 
 	enum fbq_type		fbq_type;
 	enum group_type		src_grp_type;
@@ -8965,7 +8959,7 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 		struct root_domain *rd = env->dst_rq->rd;
 
 		if ((rcu_dereference(rd->pd) && !sd_overutilized(env->sd)) &&
-		    env->idle == CPU_NEWLY_IDLE && !env->prefer_spread &&
+		    env->idle == CPU_NEWLY_IDLE &&
 		    !task_in_related_thread_group(p)) {
 			long util_cum_dst, util_cum_src;
 			unsigned long demand;
@@ -9162,8 +9156,7 @@ redo:
 		 * finding busiest group, ignore the task's h_load.
 		 */
 
-		if (!env->prefer_spread &&
-			((cpu_rq(env->src_cpu)->nr_running > 2) ||
+		if (((cpu_rq(env->src_cpu)->nr_running > 2) ||
 			(env->flags & LBF_IGNORE_BIG_TASKS)) &&
 			((load / 2) > env->imbalance))
 			goto next;
@@ -10022,13 +10015,6 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 	 * prefer to pick sg with more runnable tasks and break the ties
 	 * with utilization.
 	 */
-	if (env->prefer_spread) {
-		if (sgs->sum_nr_running < busiest->sum_nr_running)
-			return false;
-		if (sgs->sum_nr_running > busiest->sum_nr_running)
-			return true;
-		return sgs->group_util > busiest->group_util;
-	}
 
 	if (sgs->avg_load <= busiest->avg_load)
 		return false;
@@ -10569,7 +10555,7 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 			int cpu_local, cpu_busiest;
 			unsigned long capacity_local, capacity_busiest;
 
-			if (env->idle != CPU_NEWLY_IDLE && !env->prefer_spread)
+			if (env->idle != CPU_NEWLY_IDLE)
 				goto out_balanced;
 
 			if (!sds.local || !sds.busiest)
@@ -10624,7 +10610,7 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 	 * task.
 	 */
 	if (env->idle != CPU_NOT_IDLE && group_has_capacity(env, local) &&
-	    (busiest->group_no_capacity || env->prefer_spread))
+	    (busiest->group_no_capacity))
 		goto force_balance;
 
 	/* Misfit tasks should be dealt with regardless of the avg load */
@@ -10675,7 +10661,7 @@ force_balance:
 	 * If we couldn't find any imbalance, then boost the imbalance
 	 * based on the group util.
 	 */
-	if (!env->imbalance && env->prefer_spread)
+	if (!env->imbalance)
 		env->imbalance = (busiest->group_util >> 1);
 
 	trace_sched_load_balance_stats(sds.busiest->cpumask[0],
@@ -10932,11 +10918,6 @@ static int load_balance(int this_cpu, struct rq *this_rq,
 		.flags		= 0,
 		.loop		= 0,
 	};
-
-	env.prefer_spread = (idle != CPU_NOT_IDLE &&
-				prefer_spread_on_idle(this_cpu) &&
-				!((sd->flags & SD_ASYM_CPUCAPACITY) &&
-				 !is_asym_cap_cpu(this_cpu)));
 
 	cpumask_and(cpus, sched_domain_span(sd), cpu_active_mask);
 
@@ -11229,7 +11210,7 @@ out:
 				 busiest ? busiest->nr_running : 0,
 				 env.imbalance, env.flags, ld_moved,
 				 sd->balance_interval, active_balance,
-				 sd_overutilized(sd), env.prefer_spread);
+				 sd_overutilized(sd));
 	return ld_moved;
 }
 
@@ -11469,7 +11450,7 @@ static void rebalance_domains(struct rq *rq, enum cpu_idle_type idle)
 		}
 		max_cost += sd->max_newidle_lb_cost;
 
-		if (!sd_overutilized(sd) && !prefer_spread_on_idle(cpu))
+		if (!sd_overutilized(sd))
 			continue;
 
 		if (!(sd->flags & SD_LOAD_BALANCE))
@@ -11728,8 +11709,7 @@ static void nohz_balancer_kick(struct rq *rq)
 	 * happens from the tickpath.
 	 */
 	if (static_branch_likely(&sched_energy_present)) {
-		if (rq->nr_running >= 2 && (cpu_overutilized(cpu) ||
-			prefer_spread_on_idle(cpu)))
+		if (rq->nr_running >= 2 && (cpu_overutilized(cpu)))
 			flags = NOHZ_KICK_MASK;
 		goto out;
 	}

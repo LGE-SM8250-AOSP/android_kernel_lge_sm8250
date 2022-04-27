@@ -1310,7 +1310,7 @@ bool uclamp_boosted(struct task_struct *p)
 bool uclamp_latency_sensitive(struct task_struct *p)
 {
 #ifdef CONFIG_SCHED_TUNE
-	return schedtune_prefer_idle(p) != 0;
+	return schedtune_task_boost(p) != 0;
 #endif
 	return false;
 }

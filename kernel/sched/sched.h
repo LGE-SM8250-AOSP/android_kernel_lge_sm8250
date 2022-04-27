@@ -3148,9 +3148,7 @@ static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
 		 * Filter out tasks less than min task util threshold
 		 * under conservative boost.
 		 */
-		if (sched_boost() == CONSERVATIVE_BOOST &&
-				task_util(p) <=
-				sysctl_sched_min_task_util_for_boost)
+		if (sched_boost() == CONSERVATIVE_BOOST)
 			policy = SCHED_BOOST_NONE;
 	}
 

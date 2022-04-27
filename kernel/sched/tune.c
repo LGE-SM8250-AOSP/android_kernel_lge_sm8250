@@ -115,6 +115,10 @@ struct schedtune {
 
 	/* Controls whether further updates are allowed to the colocate flag */
 	bool colocate_update_disabled;
+
+	/* Hint to bias scheduling of tasks on that SchedTune CGroup
+	 * towards higher capacity CPUs */
+	bool prefer_high_cap;
 #endif /* CONFIG_SCHED_WALT */
 
 	/* Hint to bias scheduling of tasks on that SchedTune CGroup
@@ -133,9 +137,6 @@ struct schedtune {
 	struct work_struct dsb_work;
 #endif /* CONFIG_DYNAMIC_STUNE_BOOST */
 
-	/* Hint to bias scheduling of tasks on that SchedTune CGroup
-	 * towards higher capacity CPUs */
-	bool prefer_high_cap;
 };
 
 static inline struct schedtune *css_st(struct cgroup_subsys_state *css)
@@ -167,18 +168,18 @@ root_schedtune = {
 	.boost	= 0,
 	.sched_boost_enabled = true,
 #ifdef CONFIG_SCHED_WALT
+	.prefer_idle = 0,
 	.sched_boost_no_override = false,
 	.colocate = false,
 	.colocate_update_disabled = false,
+	.prefer_high_cap = false,
 #endif
-	.prefer_idle = 0,
 #ifdef CONFIG_DYNAMIC_STUNE_BOOST
 	.boost_default = 0,
 	.boost_cur = 0,
 	.is_boosting = false,
 #endif /* CONFIG_DYNAMIC_STUNE_BOOST */
-	.prefer_high_cap = false,
-	
+
 };
 
 /*
@@ -606,6 +607,7 @@ int schedtune_task_boost(struct task_struct *p)
 	return task_boost;
 }
 
+#ifdef CONFIG_SCHED_WALT
 int schedtune_prefer_idle(struct task_struct *p)
 {
 	int prefer_idle;
@@ -670,6 +672,7 @@ prefer_idle_write(struct cgroup_subsys_state *css, struct cftype *cft,
 
 	return 0;
 }
+#endif
 
 static s64
 boost_read(struct cgroup_subsys_state *css, struct cftype *cft)
@@ -795,6 +798,7 @@ static int boost_write_wrapper(struct cgroup_subsys_state *css,
 	return boost_write(css, cft, boost);
 }
 
+#ifdef CONFIG_SCHED_WALT
 static int prefer_idle_write_wrapper(struct cgroup_subsys_state *css,
 				     struct cftype *cft, u64 prefer_idle)
 {
@@ -803,6 +807,7 @@ static int prefer_idle_write_wrapper(struct cgroup_subsys_state *css,
 
 	return prefer_idle_write(css, cft, prefer_idle);
 }
+#endif
 #endif
 
 static struct cftype files[] = {
@@ -823,6 +828,7 @@ static struct cftype files[] = {
 		.read_s64 = boost_read,
 		.write_s64 = boost_write_wrapper,
 	},
+#ifdef CONFIG_SCHED_WALT
 	{
 		.name = "prefer_idle",
 		.read_u64 = prefer_idle_read,
@@ -833,6 +839,7 @@ static struct cftype files[] = {
 		.read_u64 = prefer_high_cap_read,
 		.write_u64 = prefer_high_cap_write,
 	},
+#endif
 	{ }	/* terminate */
 };
 
@@ -864,17 +871,16 @@ schedtune_boostgroup_init(struct schedtune *st, int idx)
 struct st_data {
 	char *name;
 	int boost;
-	bool prefer_idle;
 };
 
 static void write_default_values(struct cgroup_subsys_state *css)
 {
 	static struct st_data st_targets[] = {
-		{ "audio-app",	0, 0 },
-		{ "background",	0, 0 },
-		{ "foreground",	1, 1 },
-		{ "rt",		0, 0 },
-		{ "top-app",	1, 1 },
+		{ "audio-app",	0 },
+		{ "background",	0 },
+		{ "foreground",	1 },
+		{ "rt",		0 },
+		{ "top-app",	1 },
 	};
 	int i;
 
@@ -883,7 +889,9 @@ static void write_default_values(struct cgroup_subsys_state *css)
 
 		if (!strcmp(css->cgroup->kn->name, tgt.name)) {
 			boost_write(css, NULL, tgt.boost);
+#ifdef CONFIG_SCHED_WALT
 			prefer_idle_write(css, NULL, tgt.prefer_idle);
+#endif
 		}
 	}
 }

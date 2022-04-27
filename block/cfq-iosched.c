@@ -38,6 +38,11 @@ static const u64 cfq_target_latency = (u64)NSEC_PER_SEC * 3/10; /* 300 ms */
 static const int cfq_hist_divisor = 4;
 #ifdef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
 static int cfq_max_async_dispatch = 8;
+#else
+/* IOPP-cfq_max_async_dispatch-v1.0.4.4 */
+static int cfq_max_async_dispatch = 4;
+/* IOPP-cfq_rt_idle_only-v1.0.k4.19 */
+static int cfq_rt_idle_only = 1;
 #endif
 
 /*
@@ -399,6 +404,9 @@ struct cfq_data {
 	unsigned int cfq_slice_async_rq;
 #ifdef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
 	unsigned int cfq_max_async_dispatch;
+#else
+	unsigned int cfq_max_async_dispatch;
+	unsigned int cfq_rt_idle_only;
 #endif
 	unsigned int cfq_latency;
 	u64 cfq_fifo_expire[2];
@@ -3004,6 +3012,10 @@ static bool cfq_should_idle(struct cfq_data *cfqd, struct cfq_queue *cfqq)
 	/* We never do for idle class queues. */
 	if (wl_class == IDLE_WORKLOAD)
 		return false;
+#ifndef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
+	if (cfqd->cfq_rt_idle_only && wl_class != RT_WORKLOAD)
+		return false;
+#endif
 
 	/* We do for queues that were marked with idle window flag. */
 	if (cfq_cfqq_idle_window(cfqq) &&
@@ -3511,6 +3523,11 @@ static inline bool cfq_slice_used_soon(struct cfq_data *cfqd,
 	return false;
 }
 
+#ifndef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
+#define CFQ_MAY_DISPATCH_ASYNC(cfqd) \
+	((cfqd)->rq_in_flight[BLK_RW_ASYNC] < (cfqd)->cfq_max_async_dispatch)
+#endif
+
 static bool cfq_may_dispatch(struct cfq_data *cfqd, struct cfq_queue *cfqq)
 {
 	unsigned int max_dispatch;
@@ -3539,6 +3556,7 @@ static bool cfq_may_dispatch(struct cfq_data *cfqd, struct cfq_queue *cfqq)
 
 	/*
 	 * If this is an async queue and we have sync IO in flight, let it wait
+	 * but only if device does not support hw_tag.
 	 */
 #ifdef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
 	if (cfqd->rq_in_flight[BLK_RW_SYNC] && !cfq_cfqq_sync(cfqq) && !cfqd->hw_tag)
@@ -3547,7 +3565,14 @@ static bool cfq_may_dispatch(struct cfq_data *cfqd, struct cfq_queue *cfqq)
 	if (cfqd->rq_in_flight[BLK_RW_ASYNC] >= cfq_max_async_dispatch && !cfq_cfqq_sync(cfqq))
 		return false;
 #else
-	if (cfqd->rq_in_flight[BLK_RW_SYNC] && !cfq_cfqq_sync(cfqq))
+	if (cfqd->rq_in_flight[BLK_RW_SYNC] && !cfq_cfqq_sync(cfqq)
+			&& !cfqd->hw_tag)
+		return false;
+
+	/*
+	 * Let it wait if too many async requests are dispatched.
+	 */
+	if (!cfq_cfqq_sync(cfqq) && !CFQ_MAY_DISPATCH_ASYNC(cfqd))
 		return false;
 #endif
 
@@ -3632,7 +3657,11 @@ static bool cfq_dispatch_request(struct cfq_data *cfqd, struct cfq_queue *cfqq)
 	BUG_ON(RB_EMPTY_ROOT(&cfqq->sort_list));
 
 	rq = cfq_check_fifo(cfqq);
+#ifdef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
 	if (rq)
+#else
+	if (rq && (cfq_cfqq_sync(cfqq) || CFQ_MAY_DISPATCH_ASYNC(cfqd)))
+#endif
 		cfq_mark_cfqq_must_dispatch(cfqq);
 
 	if (!cfq_may_dispatch(cfqd, cfqq))
@@ -3877,7 +3906,12 @@ static void cfq_init_cfqq(struct cfq_data *cfqd, struct cfq_queue *cfqq,
 	cfq_mark_cfqq_prio_changed(cfqq);
 
 	if (is_sync) {
+#ifdef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
 		if (!cfq_class_idle(cfqq))
+#else
+		if (!cfq_class_idle(cfqq) &&
+		    (!cfqd->cfq_rt_idle_only || cfq_class_rt(cfqq)))
+#endif
 			cfq_mark_cfqq_idle_window(cfqq);
 		cfq_mark_cfqq_sync(cfqq);
 	}
@@ -4071,6 +4105,11 @@ cfq_update_idle_window(struct cfq_data *cfqd, struct cfq_queue *cfqq,
 	 */
 	if (!cfq_cfqq_sync(cfqq) || cfq_class_idle(cfqq))
 		return;
+
+#ifndef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
+	if (cfqd->cfq_rt_idle_only && !cfq_class_rt(cfqq))
+		return;
+#endif
 
 	enable_idle = old_idle = cfq_cfqq_idle_window(cfqq);
 
@@ -4327,6 +4366,11 @@ static void cfq_update_hw_tag(struct cfq_data *cfqd)
 	}
 #else
 		cfqd->hw_tag = 1;
+		/*
+		 * for queueing devices, such as UFS and eMMC CQ,
+		 * set slice_idle to 0 if no one touched it yet.
+		 */
+		cfqd->cfq_slice_idle = 0;
 #endif
 	else
 		cfqd->hw_tag = 0;
@@ -4817,6 +4861,10 @@ static int cfq_init_queue(struct request_queue *q, struct elevator_type *e)
 	cfqd->cfq_slice_idle = cfq_slice_idle;
 #ifdef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
 	cfqd->cfq_max_async_dispatch = cfq_max_async_dispatch;
+#else
+	cfqd->cfq_rt_idle_only = cfq_rt_idle_only;
+	cfqd->cfq_max_async_dispatch = cfq_max_async_dispatch;
+
 #endif
 	cfqd->cfq_group_idle = cfq_group_idle;
 	cfqd->cfq_latency = 1;
@@ -4842,7 +4890,11 @@ static void cfq_registered_queue(struct request_queue *q)
 	/*
 	 * Default to IOPS mode with no idling for SSDs
 	 */
+#ifdef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
 	if (blk_queue_nonrot(q))
+#else
+	if (blk_queue_nonrot(q) && !cfqd->cfq_rt_idle_only)
+#endif
 		cfqd->cfq_slice_idle = 0;
 	wbt_disable_default(q);
 }
@@ -4881,8 +4933,13 @@ SHOW_FUNCTION(cfq_back_seek_penalty_show, cfqd->cfq_back_penalty, 0);
 SHOW_FUNCTION(cfq_slice_idle_show, cfqd->cfq_slice_idle, 1);
 #ifdef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
 SHOW_FUNCTION(cfq_max_async_dispatch_show, cfqd->cfq_max_async_dispatch, 0);
+#else
+SHOW_FUNCTION(cfq_max_async_dispatch_show, cfqd->cfq_max_async_dispatch, 0);
 #endif
 SHOW_FUNCTION(cfq_group_idle_show, cfqd->cfq_group_idle, 0);
+#ifndef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
+SHOW_FUNCTION(cfq_rt_idle_only_show, cfqd->cfq_rt_idle_only, 0);
+#endif
 SHOW_FUNCTION(cfq_slice_sync_show, cfqd->cfq_slice[1], 1);
 SHOW_FUNCTION(cfq_slice_async_show, cfqd->cfq_slice[0], 1);
 SHOW_FUNCTION(cfq_slice_async_rq_show, cfqd->cfq_slice_async_rq, 0);
@@ -4933,8 +4990,13 @@ STORE_FUNCTION(cfq_back_seek_penalty_store, &cfqd->cfq_back_penalty, 1,
 STORE_FUNCTION(cfq_slice_idle_store, &cfqd->cfq_slice_idle, 0, UINT_MAX, 1);
 #ifdef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
 STORE_FUNCTION(cfq_max_async_dispatch_store, &cfqd->cfq_max_async_dispatch, 1, UINT_MAX, 0);
+#else
+STORE_FUNCTION(cfq_max_async_dispatch_store, &cfqd->cfq_max_async_dispatch, 1, UINT_MAX, 0);
 #endif
 STORE_FUNCTION(cfq_group_idle_store, &cfqd->cfq_group_idle, 0, UINT_MAX, 0);
+#ifndef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
+STORE_FUNCTION(cfq_rt_idle_only_store, &cfqd->cfq_rt_idle_only, 0, 1, 0);
+#endif
 STORE_FUNCTION(cfq_slice_sync_store, &cfqd->cfq_slice[1], 1, UINT_MAX, 1);
 STORE_FUNCTION(cfq_slice_async_store, &cfqd->cfq_slice[0], 1, UINT_MAX, 1);
 STORE_FUNCTION(cfq_slice_async_rq_store, &cfqd->cfq_slice_async_rq, 1,
@@ -4988,9 +5050,15 @@ static struct elv_fs_entry cfq_attrs[] = {
 	CFQ_ATTR(slice_idle_us),
 	CFQ_RO_ATTR(group_idle),
 	CFQ_ATTR(group_idle_us),
+#ifndef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
+	CFQ_ATTR(rt_idle_only),
+#endif
 	CFQ_ATTR(low_latency),
 	CFQ_ATTR(target_latency),
 	CFQ_ATTR(target_latency_us),
+#ifndef CONFIG_LFS_IOSCHED_CFQ_PREEMPT
+	CFQ_ATTR(max_async_dispatch),
+#endif
 	__ATTR_NULL
 };
 

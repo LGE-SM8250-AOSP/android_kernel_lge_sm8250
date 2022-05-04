@@ -38,17 +38,15 @@ OBJECT_FILES_NON_STANDARD	:= y
 KCOV_INSTRUMENT			:= n
 
 ifeq ($(cc-name),clang)
-CFLAGS_vgettimeofday.o = -O3
+CFLAGS_vgettimeofday.o = -Ofast
 else
 CFLAGS_vgettimeofday.o = -O2
 endif
-CFLAGS_vgettimeofday.o = -mcmodel=tiny -fasynchronous-unwind-tables
+CFLAGS_vgettimeofday.o += -mcmodel=tiny -fasynchronous-unwind-tables
 
 ifneq ($(c-gettimeofday-y),)
   CFLAGS_vgettimeofday.o += -include $(c-gettimeofday-y)
 endif
-
-ccflags-y += -Ofast
 
 # Clang versions less than 8 do not support -mcmodel=tiny
 ifeq ($(CONFIG_CC_IS_CLANG), y)

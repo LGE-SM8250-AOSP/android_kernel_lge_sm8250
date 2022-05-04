@@ -31,10 +31,7 @@ kona-arglass-overlay.dtbo-base := kona.dtb kona-v2.dtb kona-v2.1.dtb
 kona-xrsku4-overlay.dtbo-base := kona.dtb kona-v2.dtb kona-v2.1.dtb
 kona-hdk-overlay.dtbo-base := kona.dtb kona-v2.dtb kona-v2.1.dtb
 else #CONFIG_MACH_LGE
-	dtb-$(CONFIG_ARCH_KONA) += \
-		kona.dtb \
-		kona-v2.dtb \
-		kona-v2.1.dtb
+	dtb-$(CONFIG_ARCH_KONA) += kona-v2.1.dtb
 endif
 else
 ifneq ($(CONFIG_MACH_LGE), y)
@@ -76,10 +73,7 @@ dtb-$(CONFIG_ARCH_KONA) += kona-rumi.dtb \
         qrb5165n-iot-rb5.dtb \
         kona-v2.1-iot-rb5.dtb
 else #CONFIG_MACH_LGE
-	dtb-$(CONFIG_ARCH_KONA) += \
-		kona.dtb \
-		kona-v2.dtb \
-		kona-v2.1.dtb
+	dtb-$(CONFIG_ARCH_KONA) += kona-v2.1.dtb
 endif
 endif
 

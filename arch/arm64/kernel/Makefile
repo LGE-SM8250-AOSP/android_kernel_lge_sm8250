@@ -67,6 +67,10 @@ arm64-obj-$(CONFIG_ARM_SDE_INTERFACE)	+= sdei.o
 arm64-obj-$(CONFIG_ARM64_SSBD)		+= ssbd.o
 arm64-obj-$(CONFIG_SHADOW_CALL_STACK)	+= scs.o
 
+# Force dependency (vdso*-wrap.S includes vdso.so through incbin)
+$(arm64-obj-y)/vdso-wrap.o: $(arm64-obj-y)/vdso/vdso.so
+$(arm64-obj-y)/vdso32-wrap.o: $(arm64-obj-y)/vdso32/vdso.so
+
 obj-y					+= $(arm64-obj-y) probes/
 obj-m					+= $(arm64-obj-m)
 head-y					:= head.o

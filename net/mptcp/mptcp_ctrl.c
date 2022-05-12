@@ -63,20 +63,12 @@ static struct kmem_cache *mptcp_sock_cache __read_mostly;
 static struct kmem_cache *mptcp_cb_cache __read_mostly;
 static struct kmem_cache *mptcp_tw_cache __read_mostly;
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
-int sysctl_mptcp_enabled __read_mostly = 2;
-#else
-int sysctl_mptcp_enabled __read_mostly = 1;
-#endif
+int sysctl_mptcp_enabled __read_mostly = 0;
 int sysctl_mptcp_version __read_mostly = 0;
 static int min_mptcp_version;
 static int max_mptcp_version = 1;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 int sysctl_mptcp_checksum __read_mostly = 0;
-#else
-int sysctl_mptcp_checksum __read_mostly = 1;
-#endif
-int sysctl_mptcp_debug __read_mostly;
+int sysctl_mptcp_debug __read_mostly = 0;
 EXPORT_SYMBOL(sysctl_mptcp_debug);
 int sysctl_mptcp_syn_retries __read_mostly = 3;
 

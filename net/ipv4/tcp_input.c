@@ -4666,18 +4666,16 @@ static int tcp_prune_queue(struct sock *sk);
 static int tcp_try_rmem_schedule(struct sock *sk, struct sk_buff *skb,
 				 unsigned int size)
 {
-#ifdef CONFIG_MPTCP
-	if (mptcp(tcp_sk(sk)))
-		sk = mptcp_meta_sk(sk);
-#endif
-	if (atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf ||
+	struct sock *meta_sk = mptcp(tcp_sk(sk)) ? mptcp_meta_sk(sk) : sk;
+
+	if (atomic_read(&meta_sk->sk_rmem_alloc) > meta_sk->sk_rcvbuf ||
 	    !sk_rmem_schedule(sk, skb, size)) {
 
-		if (tcp_prune_queue(sk) < 0)
+		if (tcp_prune_queue(meta_sk) < 0)
 			return -1;
 
 		while (!sk_rmem_schedule(sk, skb, size)) {
-			if (!tcp_prune_ofo_queue(sk))
+			if (!tcp_prune_ofo_queue(meta_sk))
 				return -1;
 		}
 	}

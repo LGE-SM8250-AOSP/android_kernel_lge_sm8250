@@ -34,7 +34,6 @@
 #include <drm/drm_writeback.h>
 #include <linux/sync_file.h>
 #include <linux/devfreq_boost.h>
-#include <linux/cpu_input_boost.h>
 
 #include "drm_crtc_internal.h"
 #include "drm_internal.h"
@@ -2601,7 +2600,6 @@ static int __drm_mode_atomic_ioctl(struct drm_device *dev, void *data,
 		return -EINVAL;
 
 	if (!(arg->flags & DRM_MODE_ATOMIC_TEST_ONLY)) {
-		cpu_input_boost_kick();
 		devfreq_boost_kick(DEVFREQ_CPU_LLCC_DDR_BW);
 	}
 

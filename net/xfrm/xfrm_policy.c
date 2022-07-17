@@ -730,7 +730,20 @@ static void xfrm_policy_requeue(struct xfrm_policy *old,
 static bool xfrm_policy_mark_match(struct xfrm_policy *policy,
 				   struct xfrm_policy *pol)
 {
+/*LGP_DATA_IWLAN  don't check priority for matching
 	if (policy->mark.v == pol->mark.v &&
+	    policy->priority == pol->priority)
+		return true;
+
+	return false;
+*/
+	u32 mark = policy->mark.v & policy->mark.m;
+
+	if (policy->mark.v == pol->mark.v && policy->mark.m == pol->mark.m)
+		return true;
+
+
+	if ((mark & pol->mark.m) == pol->mark.v &&
 	    policy->priority == pol->priority)
 		return true;
 
@@ -1649,6 +1662,9 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
 		dst1->input = dst_discard;
 		dst1->output = inner_mode->afinfo->output;
 
+		/* 2018-03-16 gihong.jang@lge.com LGP_DATA_KERNEL_XFRM_FRAG_ESP [START]*/
+		dst1->next = &xdst_prev->u.dst;
+		/* 2018-03-16 gihong.jang@lge.com LGP_DATA_KERNEL_XFRM_FRAG_ESP [END]*/
 		xdst_prev = xdst;
 
 		header_len += xfrm[i]->props.header_len;

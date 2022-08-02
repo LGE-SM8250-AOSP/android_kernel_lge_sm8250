@@ -3358,7 +3358,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
 #ifdef CONFIG_TCP_MD5SIG
 	case TCP_MD5SIG:
 	case TCP_MD5SIG_EXT:
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#ifdef CONFIG_MPTCP
 		if (!sock_flag(sk, SOCK_MPTCP))
 			err = tp->af_specific->md5_parse(sk, optname, optval, optlen);
 		else

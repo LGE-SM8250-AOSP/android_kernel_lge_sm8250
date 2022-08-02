@@ -257,7 +257,7 @@ static int __net_init ipv6_sysctl_net_init(struct net *net)
 /* 2019-10-22 taegil.kim@lge.com LGP_DATA_SET_OPERATOR_FOR_IPV6 [START] */
 	vzw_hdr = register_net_sysctl(net, "net", net_table);
 	if (!vzw_hdr)
-		pr_info("[ipv6 net] register net sysctl optr is fail.\n");
+		goto out_unregister_vzw_hdr;
 /* 2019-10-22 taegil.kim@lge.com LGP_DATA_SET_OPERATOR_FOR_IPV6 [END] */
 	net->ipv6.sysctl.route_hdr =
 		register_net_sysctl(net, "net/ipv6/route", ipv6_route_table);
@@ -276,6 +276,8 @@ out_unregister_route_table:
 	unregister_net_sysctl_table(net->ipv6.sysctl.route_hdr);
 out_unregister_ipv6_table:
 	unregister_net_sysctl_table(net->ipv6.sysctl.hdr);
+out_unregister_vzw_hdr:
+	unregister_net_sysctl_table(vzw_hdr);
 out_ipv6_icmp_table:
 	kfree(ipv6_icmp_table);
 out_ipv6_route_table:

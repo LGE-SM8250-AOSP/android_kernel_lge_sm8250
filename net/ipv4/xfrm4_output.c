@@ -18,7 +18,6 @@
 #include <net/xfrm.h>
 #include <net/icmp.h>
 
-#include <net/patchcodeid.h>
 
 static int xfrm4_tunnel_check_size(struct sk_buff *skb)
 {
@@ -106,7 +105,6 @@ static int __xfrm4_output(struct net *net, struct sock *sk, struct sk_buff *skb)
 
 /* 2018-03-16 gihong.jang@lge.com LGP_DATA_KERNEL_XFRM_FRAG_ESP [START]*/
 #ifdef CONFIG_XFRM_FRAG_ESP_BEFORE_TUNNEL_ENC
-	patch_code_id("LPCP-2381@n@c@vmlinux@xfrm4_output.c@1");
 	if (x->props.mode == XFRM_MODE_TUNNEL &&
 			skb != NULL && skb->protocol == htons(ETH_P_IP) &&
 			skb->sk != NULL && skb->sk->sk_protocol != IPPROTO_TCP &&

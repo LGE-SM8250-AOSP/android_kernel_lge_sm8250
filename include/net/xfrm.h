@@ -23,7 +23,6 @@
 #include <net/ipv6.h>
 #include <net/ip6_fib.h>
 #include <net/flow.h>
-#include <net/patchcodeid.h>
 #include <net/gro_cells.h>
 
 #include <linux/interrupt.h>

@@ -19,7 +19,6 @@
 #include <net/dst.h>
 #include <net/xfrm.h>
 
-#include <net/patchcodeid.h>
 
 static int xfrm_output2(struct net *net, struct sock *sk, struct sk_buff *skb);
 
@@ -161,7 +160,6 @@ int xfrm_output_resume(struct sk_buff *skb, int err)
 
 /* 2018-03-16 gihong.jang@lge.com LGP_DATA_KERNEL_XFRM_FRAG_ESP [START]*/
 #ifdef CONFIG_XFRM_FRAG_ESP_BEFORE_TUNNEL_ENC
-		patch_code_id("LPCP-2381@n@c@vmlinux@xfrm_output.c@1");
 		if (skb->protocol == htons(ETH_P_IPV6) ||
 				(skb->protocol == htons(ETH_P_IP) && skb->sk != NULL && skb->sk->sk_protocol != IPPROTO_TCP)) {
 			struct sock *sk = skb->sk;

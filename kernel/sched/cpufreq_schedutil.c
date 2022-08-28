@@ -595,7 +595,7 @@ static inline bool sugov_cpu_is_busy(struct sugov_cpu *sg_cpu) { return false; }
 
 #define NL_RATIO 75
 #define DEFAULT_HISPEED_LOAD 90
-#define DEFAULT_CPU0_RTG_BOOST_FREQ 1000000
+#define DEFAULT_CPU0_RTG_BOOST_FREQ 0
 #define DEFAULT_CPU4_RTG_BOOST_FREQ 0
 #define DEFAULT_CPU7_RTG_BOOST_FREQ 0
 static void sugov_walt_adjust(struct sugov_cpu *sg_cpu, unsigned long *util,
@@ -1257,18 +1257,18 @@ static int sugov_init(struct cpufreq_policy *policy)
 	case 0:
 		tunables->up_rate_limit_us = CONFIG_SCHEDUTIL_LP_UP_RATE_LIMIT;
 		tunables->down_rate_limit_us = CONFIG_SCHEDUTIL_LP_DOWN_RATE_LIMIT;
-		tunables->hispeed_load = 80;
-		tunables->hispeed_freq = 1516800;
+		tunables->hispeed_load = 15;
+		tunables->hispeed_freq = 1708800;
 		tunables->rtg_boost_freq = DEFAULT_CPU0_RTG_BOOST_FREQ;
 		tunables->pl = false;
 		break;
 	case 4:
 		tunables->up_rate_limit_us = CONFIG_SCHEDUTIL_PERF_UP_RATE_LIMIT;
 		tunables->down_rate_limit_us = CONFIG_SCHEDUTIL_PERF_DOWN_RATE_LIMIT;
-		tunables->hispeed_load = 60;
+		tunables->hispeed_load = 35;
 		tunables->hispeed_freq = 1862400;
 		tunables->rtg_boost_freq = DEFAULT_CPU4_RTG_BOOST_FREQ;
-		tunables->pl = false;
+		tunables->pl = true;
 		break;
 	case 7:
 		tunables->up_rate_limit_us = CONFIG_SCHEDUTIL_PRIME_UP_RATE_LIMIT;

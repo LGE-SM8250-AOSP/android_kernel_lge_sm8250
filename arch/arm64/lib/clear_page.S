@@ -16,7 +16,6 @@
 
 #include <linux/linkage.h>
 #include <linux/const.h>
-#include <asm/assembler.h>
 #include <asm/page.h>
 
 /*
@@ -37,4 +36,3 @@ SYM_FUNC_START_PI(clear_page)
 	b.ne	1b
 	ret
 SYM_FUNC_END_PI(clear_page)
-EXPORT_SYMBOL(clear_page)

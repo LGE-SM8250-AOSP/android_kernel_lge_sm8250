@@ -16,7 +16,6 @@
 
 #include <linux/linkage.h>
 #include <linux/const.h>
-#include <asm/assembler.h>
 #include <asm/page.h>
 #include <asm/cpufeature.h>
 #include <asm/alternative.h>
@@ -87,4 +86,3 @@ alternative_else_nop_endif
 
 	ret
 SYM_FUNC_END_PI(copy_page)
-EXPORT_SYMBOL(copy_page)

@@ -18,7 +18,6 @@
  */
 
 #include <linux/linkage.h>
-#include <asm/assembler.h>
 
 /*
  * Find the last occurrence of a character in a string.
@@ -41,4 +40,3 @@ SYM_FUNC_START_WEAK_PI(strrchr)
 2:	mov	x0, x3
 	ret
 SYM_FUNC_END_PI(strrchr)
-EXPORT_SYMBOL_NOKASAN(strrchr)

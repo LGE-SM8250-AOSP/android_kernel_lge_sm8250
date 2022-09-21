@@ -2,6 +2,10 @@
 # Network configuration
 #
 
+# Docker start
+source "net/docker/Kconfig"
+# Docker end
+
 menuconfig NET
 	bool "Networking support"
 	select NLATTR
